@@ -18,7 +18,11 @@ public/                 static files served as-is
     scenes.js           the 31 scenes, scoring rules, tags
     daily.js            the monthly rotation (which scene is on which day, midnight Pacific)
     validate.js         run validation (anti-cheat), run in the browser and on the server
-worker/index.js         leaderboard API (/api/today, /api/scores, /api/runs)
+    version.js          the game version (shown in the menu, saved with runs and feedback)
+  privacy.html          privacy page (served at /privacy)
+  fonts/                Chakra Petch, self-hosted (SIL Open Font License)
+  og.png                link preview image
+worker/index.js         API (/api/today, /api/scores, /api/runs, /api/feedback)
 migrations/             D1 database schema
 wrangler.jsonc          Cloudflare config (Worker, static files, D1, aimdle.io domain)
 ```
@@ -88,3 +92,21 @@ but without the API: the game runs offline with a simulated field of other playe
   only by the offline simulated field.
 - Changing the number of scenes or their order reshuffles the rotation immediately, including
   the current month, so make those changes on the first day of a month.
+
+## Reading feedback
+
+Messages from the in-game feedback box are stored in the `feedback` table:
+
+```
+npx wrangler d1 execute aimdle --remote --command "SELECT datetime(created_at/1000, 'unixepoch') AS sent_utc, category, scene_id, version, browser, message FROM feedback ORDER BY id DESC LIMIT 50"
+```
+
+## Releasing a new version
+
+1. Bump `VERSION` in `public/js/shared/version.js`: last number for fixes and small tuning, middle
+   number for new scenes, features or any scoring/difficulty change, first number for launch-sized changes.
+2. Add an entry at the top of `CHANGELOG.md`.
+3. Commit, then tag it: `git tag v0.2.1 && git push --tags`.
+
+Scoring or difficulty changes should go live right after midnight Pacific, so a day's ranked
+runs are all played under the same rules.

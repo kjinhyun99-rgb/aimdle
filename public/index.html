@@ -9,13 +9,24 @@
 <link rel="modulepreload" href="/js/shared/daily.js">
 <link rel="modulepreload" href="/js/shared/scenes.js">
 <link rel="modulepreload" href="/js/shared/validate.js">
+<meta name="description" content="A daily aim challenge in your browser. One scene a day, one 60-second ranked run, and a bell curve of everyone's scores.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="aimdle.io">
+<meta property="og:title" content="aimdle.io: the daily aim challenge">
+<meta property="og:description" content="One scene a day, one 60-second ranked run. See how you compare with everyone who played today.">
+<meta property="og:url" content="https://aimdle.io/">
+<meta property="og:image" content="https://aimdle.io/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&display=swap">
+<link rel="preload" href="/fonts/chakra-petch-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+/* Chakra Petch (SIL Open Font License), served from aimdle.io: see /fonts/OFL.txt */
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/chakra-petch-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/chakra-petch-latin-700-normal.woff2') format('woff2'); }
 /* Layout: full-bleed 3D canvas, slate HUD panels pinned to corners, one centered sheet for menu/results. Single dark look by design. */
 :root {
   --void: #0b1118;
@@ -110,6 +121,20 @@ button, input, select { font: inherit; color: inherit; }
 .btn.primary:hover { background: #9adcff; }
 .btn.danger { color: #ff9aa9; border-color: rgba(255,95,143,.4); }
 .keys { margin: 0; font-size: 13px; color: var(--muted); }
+.menu-foot { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding: 12px 28px 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.menu-foot .linkbtn { appearance: none; background: none; border: 0; padding: 0; color: var(--muted); font: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.menu-foot a { color: var(--muted); text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.menu-foot .linkbtn:hover, .menu-foot a:hover { color: var(--fg); }
+.menu-foot .ver { margin-left: auto; font-family: var(--mono); font-size: 12px; }
+.tips { border: 1px solid var(--line-strong); border-radius: 10px; padding: 14px 16px; background: rgba(121,207,255,.05); }
+.tips h2 { margin: 0 0 8px; font-family: var(--display); font-size: 16px; letter-spacing: 0.04em; }
+.tips ol { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 4px; color: #c3ccd7; line-height: 1.45; }
+.tips ol b { color: var(--fg); }
+.tips .keys { margin-bottom: 10px; }
+.form .fb-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-start; }
+#fb-text { box-sizing: border-box; width: 100%; min-height: 120px; resize: vertical; background: var(--panel-solid); border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; font-family: var(--body); font-size: 14px; line-height: 1.45; }
+#fb-msg { margin: 0; font-size: 14px; min-height: 1.4em; }
+#fb-msg.ok { color: var(--good); } #fb-msg.bad { color: #ff9aa9; }
 kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--fg); }
 details.other summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 details.other[open] summary { margin-bottom: 10px; }
@@ -215,6 +240,17 @@ details.other[open] summary { margin-bottom: 10px; }
     </nav>
 
     <section class="tabpanel" data-panel="play">
+      <div class="tips" id="tips" hidden>
+        <h2>How aimdle works</h2>
+        <ol>
+          <li><b>One scene a day.</b> Everyone gets the same scene, and it changes at midnight Pacific time.</li>
+          <li><b>Warm up first.</b> Free play is unlimited and doesn't count. Adjust sensitivity and FOV in the next tab.</li>
+          <li><b>One ranked run.</b> Start the 60-second challenge from this menu when you're ready. Only your first ranked run each day counts.</li>
+          <li><b>See where you land.</b> Your score is placed on a bell curve of everyone who played today.</li>
+        </ol>
+        <p class="keys"><kbd>Esc</kbd> menu · <kbd>B</kbd> box room · <kbd>M</kbd> mute · <kbd>R</kbd> reset free-play stats · click bubbles and cubes, hold the mouse button to track</p>
+        <button class="btn" id="tips-ok">Got it</button>
+      </div>
       <div class="scn-card">
         <div class="eyebrow" id="m-scn-eyebrow">Today's challenge</div>
         <h1 id="m-scn">Scenario</h1>
@@ -235,7 +271,27 @@ details.other[open] summary { margin-bottom: 10px; }
         </div>
       </details>
       <p class="keys">Works best in Chrome or Firefox.</p>
-      <p class="keys"><kbd>Esc</kbd> pause · <kbd>R</kbd> reset free-play stats · <kbd>B</kbd> box room · <kbd>M</kbd> mute · hold the mouse button on tracking scenarios</p>
+    </section>
+    <section class="tabpanel" data-panel="feedback" hidden>
+      <div class="scn-card">
+        <div class="eyebrow">Feedback</div>
+        <h1>Tell us what you think</h1>
+        <p>Bugs, a scene that feels off, ideas: everything helps. Your message is saved with the scene on screen, the game version and your browser, nothing else.</p>
+      </div>
+      <form id="fb-form" class="form">
+        <label class="field"><span>About</span>
+          <select id="fb-cat">
+            <option value="bug">A bug</option>
+            <option value="scene">How a scene feels</option>
+            <option value="idea">An idea</option>
+            <option value="other">Something else</option>
+          </select>
+        </label>
+        <label class="field wide"><span>Message</span><textarea id="fb-text" maxlength="2000" placeholder="What happened, or what would make it better?"></textarea></label>
+        <div class="fb-row field wide"><button class="btn primary" type="submit" id="fb-send">Send feedback</button><button class="btn" type="button" id="fb-back">Back</button></div>
+        <p id="fb-msg" class="field wide" role="status"></p>
+        <p class="note">Your anonymous player ID: <span id="fb-pid" style="font-family: var(--mono); user-select: all;"></span></p>
+      </form>
     </section>
 
     <section class="tabpanel" data-panel="aim" hidden>
@@ -327,6 +383,12 @@ details.other[open] summary { margin-bottom: 10px; }
       <div class="hud-grid" id="hud-toggles"></div>
       <p class="note">These only change what's on screen. Every stat is still recorded and shown on the results screen.</p>
     </section>
+    <footer class="menu-foot">
+      <button class="linkbtn" id="f-tips" type="button">How to play</button>
+      <button class="linkbtn" id="f-feedback" type="button">Send feedback</button>
+      <a href="/privacy" target="_blank" rel="noopener">Privacy</a>
+      <span class="ver" id="f-ver"></span>
+    </footer>
   </div>
 
   <!-- RESULTS -->
@@ -341,7 +403,7 @@ details.other[open] summary { margin-bottom: 10px; }
     <p id="res-msg" role="status"></p>
     <div class="res-actions">
       <button class="btn primary" id="res-free">Continue free play</button>
-      <button class="btn" id="res-copy">Copy result</button>
+      <button class="btn" id="res-copy">Share result</button>
       <button class="btn" id="res-menu">Menu</button>
     </div>
   </div>

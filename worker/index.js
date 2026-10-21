@@ -3,6 +3,7 @@
 //   GET  /api/today              today's scene, from the server's clock (day turns over at midnight Pacific)
 //   GET  /api/scores?day=YYYY-MM-DD   that day's ranked scores (for the bell curve)
 //   POST /api/runs               submit a ranked run { playerId, run }
+//   POST /api/feedback           save a message from the in-game feedback box
 //
 // Every submitted run is re-validated here with the same code the game uses, so a modified
 // client can't post an impossible score. Each anonymous player gets one ranked run per day.
@@ -13,6 +14,9 @@ import { validateRun } from '../public/js/shared/validate.js';
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_RUNS_PER_NETWORK_PER_DAY = 25; // blunts scripted floods of fake player IDs
 const MAX_SCORES_RETURNED = 5000;       // larger fields are sampled for the curve
+const MAX_FEEDBACK_PER_NETWORK_PER_DAY = 10;
+const VERSION_RE = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+const FEEDBACK_CATEGORIES = new Set(['bug', 'scene', 'idea', 'other']);
 const LATE_GRACE_MS = 3 * 60 * 1000;    // a run that finishes just after midnight Pacific still counts for the day it was played
 
 const json = (data, status = 200, extra = {}) =>
@@ -82,8 +86,9 @@ async function postRun(env, request) {
   if (n >= MAX_RUNS_PER_NETWORK_PER_DAY) return json({ ok: false, reason: 'Too many ranked runs from this network today.' }, 429);
 
   try {
-    await env.DB.prepare('INSERT INTO runs (day, scene_id, player_id, score, stats, ip_hash, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)')
-      .bind(info.key, scn.id, playerId, run.score, JSON.stringify(run.stats), ipHash, now).run();
+    const version = typeof run.version === 'string' && VERSION_RE.test(run.version) ? run.version : null;
+    await env.DB.prepare('INSERT INTO runs (day, scene_id, player_id, score, stats, ip_hash, created_at, version) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)')
+      .bind(info.key, scn.id, playerId, run.score, JSON.stringify(run.stats), ipHash, now, version).run();
   } catch (e) {
     if (String(e && e.message).includes('UNIQUE')) {
       const prev = await env.DB.prepare('SELECT score FROM runs WHERE day = ?1 AND player_id = ?2').bind(info.key, playerId).first();
@@ -95,6 +100,29 @@ async function postRun(env, request) {
   return json({ ok: true, day: info.key, count: total, below });
 }
 
+async function postFeedback(env, request) {
+  const len = Number(request.headers.get('content-length') || 0);
+  if (len > 16 * 1024) return json({ ok: false, reason: 'Message is too long.' }, 413);
+  let body;
+  try { body = JSON.parse(await request.text()); } catch { return json({ ok: false, reason: 'Message is not valid JSON.' }, 400); }
+  const message = typeof body?.message === 'string' ? body.message.trim() : '';
+  if (message.length < 3) return json({ ok: false, reason: 'Write a few words first.' }, 400);
+  if (message.length > 2000) return json({ ok: false, reason: 'Keep it under 2,000 characters.' }, 400);
+  const category = FEEDBACK_CATEGORIES.has(body.category) ? body.category : 'other';
+  const clip = (v, n) => (typeof v === 'string' ? v.slice(0, n) : null);
+  const sceneId = typeof body.sceneId === 'string' && SCENARIOS.some((s) => s.id === body.sceneId) ? body.sceneId : null;
+  const version = typeof body.version === 'string' && VERSION_RE.test(body.version) ? body.version : null;
+  const playerId = typeof body.playerId === 'string' && PLAYER_RE.test(body.playerId) ? body.playerId : null;
+  const now = Date.now(), day = dailyInfo(gameDay(now)).key;
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const ipHash = (await sha256Hex(`${day}:${ip}`)).slice(0, 32);
+  const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM feedback WHERE ip_hash = ?1 AND created_at > ?2').bind(ipHash, now - 86400000).first();
+  if (n >= MAX_FEEDBACK_PER_NETWORK_PER_DAY) return json({ ok: false, reason: 'Thanks! That is plenty of feedback from this network for today.' }, 429);
+  await env.DB.prepare('INSERT INTO feedback (created_at, category, message, scene_id, version, browser, player_id, ip_hash) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)')
+    .bind(now, category, message, sceneId, version, clip(body.browser, 120), playerId, ipHash).run();
+  return json({ ok: true });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -103,6 +131,7 @@ export default {
       if (url.pathname === '/api/today' && request.method === 'GET') return json(today(), 200, { 'cache-control': 'no-store' });
       if (url.pathname === '/api/scores' && request.method === 'GET') return await getScores(env, url, ctx);
       if (url.pathname === '/api/runs' && request.method === 'POST') return await postRun(env, request);
+      if (url.pathname === '/api/feedback' && request.method === 'POST') return await postFeedback(env, request);
       return json({ error: 'Not found.' }, 404);
     } catch (e) {
       console.error(e);

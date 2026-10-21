@@ -3,6 +3,7 @@ import { clamp, lerp, mulberry32, hashStr, gauss, fmtInt, pad2 } from './shared/
 import { DAY_MS, gameDay, nextReset, dayKey, dailyInfo } from './shared/daily.js';
 import { DPS, SCORE, SCENARIOS, sceneTag, fmtScore, SCORE_TEXT } from './shared/scenes.js';
 import { validateRun } from './shared/validate.js';
+import { VERSION } from './shared/version.js';
 
 // ---------- utils ----------
 const $ = (s) => document.querySelector(s);
@@ -693,7 +694,7 @@ function endChallenge() {
   G.state = 'results'; G.firing = false;
   const s = JSON.parse(JSON.stringify(G.stats));
   const score = SCORE[G.scn.score](s);
-  G.run = { v: 1, dayKey: G.daily.key, scenarioId: G.scn.id, score: G.scn.decimals ? Math.round(score * 10) / 10 : Math.round(score), stats: s };
+  G.run = { v: 1, version: VERSION, dayKey: G.daily.key, scenarioId: G.scn.id, score: G.scn.decimals ? Math.round(score * 10) / 10 : Math.round(score), stats: s };
   G.run.stats.damage = s.damage; // keep raw values for validation
   if (document.pointerLockElement) document.exitPointerLock();
   showResults();
@@ -799,15 +800,53 @@ function showResults() {
 $('#res-free').addEventListener('click', () => { loadScenario(G.daily.idx, 'free'); startCountdown('free'); });
 $('#res-menu').addEventListener('click', () => { loadScenario(G.daily.idx, 'free'); G.state = 'intro'; openMenu(); });
 $('#res-copy').addEventListener('click', async () => {
-  const txt = `aimdle.io · ${sceneTag(G.scnIdx)}\nScore ${fmtScore(G.scn, G.run.score)} · ${$('#res-pct').textContent.toLowerCase()}`;
-  const btn = $('#res-copy');
-  try { await navigator.clipboard.writeText(txt); btn.textContent = 'Copied'; }
-  catch (err) { $('#res-msg').className = 'info'; $('#res-msg').textContent = txt; btn.textContent = 'Copy the text above'; }
-  setTimeout(() => { btn.textContent = 'Copy result'; }, 1800);
+  const pct = $('#res-pct').textContent;
+  const text = `aimdle.io · ${sceneTag(G.scnIdx)}\nScore ${fmtScore(G.scn, G.run.score)} · ${pct.charAt(0).toLowerCase() + pct.slice(1)}`;
+  const btn = $('#res-copy'), url = 'https://aimdle.io';
+  // The system share sheet where the browser has one (Safari, Edge, Chrome on Windows); otherwise copy.
+  if (navigator.share) {
+    try { await navigator.share({ text: `${text}\n${url}` }); return; }
+    catch (err) { if (err && err.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(`${text}\n${url}`); btn.textContent = 'Copied'; }
+  catch (err) { $('#res-msg').className = 'info'; $('#res-msg').textContent = `${text} ${url}`; btn.textContent = 'Copy the text above'; }
+  setTimeout(() => { btn.textContent = 'Share result'; }, 1800);
 });
 
 // ---------- menu ----------
 function hideSheets() { $('#scrim').hidden = true; }
+
+// ---------- menu footer: how to play, feedback, version ----------
+$('#f-ver').textContent = 'v' + VERSION;
+function showTips() { selectTab('play'); $('#tips').hidden = false; }
+$('#f-tips').addEventListener('click', showTips);
+$('#tips-ok').addEventListener('click', () => { $('#tips').hidden = true; store.set('tipsSeen', true); });
+if (!store.get('tipsSeen', false)) $('#tips').hidden = false;
+
+function browserLabel() {
+  const ua = navigator.userAgent;
+  const b = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Other';
+  const os = /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'macOS' : /CrOS/.test(ua) ? 'ChromeOS' : /Linux/.test(ua) ? 'Linux' : 'Other';
+  return `${b} on ${os} · ${Math.round(fpsShown || 0)} fps · ${S.boxRoom ? 'box' : 'wall'} · raw ${G.rawInput ? 'on' : 'off'}`;
+}
+$('#f-feedback').addEventListener('click', () => { selectTab('feedback'); $('#fb-msg').textContent = ''; $('#fb-msg').className = ''; setTimeout(() => $('#fb-text').focus(), 30); });
+$('#fb-back').addEventListener('click', () => selectTab('play'));
+$('#fb-pid').textContent = PLAYER_ID;
+$('#fb-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = $('#fb-msg'), text = $('#fb-text').value.trim(), btn = $('#fb-send');
+  if (text.length < 3) { msg.className = 'bad'; msg.textContent = 'Write a few words first.'; return; }
+  if (!apiAvailable) { msg.className = 'bad'; msg.textContent = 'Feedback needs the online version at aimdle.io.'; return; }
+  btn.disabled = true; msg.className = ''; msg.textContent = 'Sending…';
+  try {
+    const r = await fetch('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ category: $('#fb-cat').value, message: text, sceneId: G.scn && G.scn.id, version: VERSION, browser: browserLabel(), playerId: PLAYER_ID }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.ok) { msg.className = 'ok'; msg.textContent = 'Thanks! Your feedback was sent.'; $('#fb-text').value = ''; }
+    else { msg.className = 'bad'; msg.textContent = d.reason || "Couldn't send right now. Please try again later."; }
+  } catch (err) { msg.className = 'bad'; msg.textContent = "Couldn't reach aimdle.io. Check your connection and try again."; }
+  btn.disabled = false;
+});
 function showMenuNote(text) { const el = $('#m-status'); el.textContent = text; el.classList.add('warn'); }
 function selectTab(name) {
   document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));

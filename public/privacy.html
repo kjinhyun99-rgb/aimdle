@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>aimdle.io Privacy</title>
+<meta name="description" content="What aimdle.io stores and why.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/chakra-petch-latin-700-normal.woff2') format('woff2'); }
+:root {
+  --bg: #0b1118; --sheet: #111a24; --line: rgba(150, 182, 214, 0.16);
+  --fg: #e8edf3; --body-fg: #c3ccd7; --muted: #8797ab; --accent: #79cfff;
+  --display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+  --body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: dark;
+}
+html { background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--body-fg); font-family: var(--body); font-size: 16px; line-height: 1.6; }
+main { max-width: 680px; margin: 0 auto; padding-block: 48px 64px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+.brand { display: inline-flex; align-items: baseline; font-family: var(--display); font-weight: 700; font-size: 22px; color: var(--fg); text-decoration: none; }
+.brand .bub { display: inline-block; width: 0.34em; height: 0.34em; margin: 0 0.07em; border-radius: 50%; background: radial-gradient(circle at 35% 32%, #ff8a8a 0 18%, #ff2a2a 42%, #b81414 100%); }
+.brand .tld { color: var(--muted); }
+h1 { font-family: var(--display); color: var(--fg); font-size: 34px; line-height: 1.15; margin: 28px 0 6px; text-wrap: balance; }
+h2 { font-family: var(--display); color: var(--fg); font-size: 19px; letter-spacing: 0.02em; margin: 34px 0 8px; }
+.updated { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+ul { padding-left: 22px; } li { margin: 6px 0; }
+b { color: var(--fg); }
+a { color: var(--accent); }
+.email { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; color: var(--fg); user-select: all; }
+footer { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <a class="brand" href="/" aria-label="aimdle.io home">aimdle<span class="bub" aria-hidden="true"></span><span class="tld">io</span></a>
+  <h1>Privacy</h1>
+  <p class="updated">Last updated 21 October 2026</p>
+  <p>aimdle.io is a daily aim-training game. It has no accounts, no ads and no tracking cookies. This page lists everything it stores and why.</p>
+
+  <h2>Stored in your browser</h2>
+  <ul>
+    <li><b>Your settings</b>: sensitivity, field of view, crosshair, sounds and HUD choices.</li>
+    <li><b>An anonymous player ID</b>: a random code that lets the leaderboard give each player one ranked run per day. It isn't linked to your name, email or any account.</li>
+    <li><b>Today's ranked score</b>, so the menu can show it.</li>
+  </ul>
+  <p>These stay on your device and are only used to make the game work. Clearing this site's data in your browser removes them.</p>
+
+  <h2>Stored on our server</h2>
+  <ul>
+    <li><b>Ranked runs</b>: the score, the run statistics (kills, accuracy, time on target), the scene, the date, the game version and your anonymous player ID. These build each day's bell curve and are checked to block impossible scores.</li>
+    <li><b>Feedback you send</b>: your message, the scene on screen, the game version and a short description of your browser (for example "Chrome on Windows").</li>
+    <li><b>A scrambled version of your IP address</b>, mixed with the date and turned into a one-way code. It is only used to limit how many runs and messages one network can send per day. It can't be turned back into your IP address, and your actual IP address is never stored.</li>
+  </ul>
+
+  <h2>Visitor statistics</h2>
+  <p>We use Cloudflare Web Analytics to count visits, pages viewed, countries and page load speed. It doesn't use cookies and doesn't follow you across other websites.</p>
+
+  <h2>Who handles the data</h2>
+  <p>The game and its database run on Cloudflare. We don't sell or share your data with anyone else, and there is no advertising on aimdle.io.</p>
+
+  <h2>Removing your data</h2>
+  <p>Email <span class="email">dev.aimdle.io@gmail.com</span> and include your player ID if you'd like your runs or feedback removed. You can find your player ID at the bottom of the game's <b>Send feedback</b> screen.</p>
+
+  <h2>Changes</h2>
+  <p>If what we store changes, this page will be updated and the date above will change.</p>
+
+  <footer><a href="/">Back to aimdle.io</a></footer>
+</main>
+</body>
+</html>
