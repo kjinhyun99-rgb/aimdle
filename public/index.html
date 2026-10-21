@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>aimdle.io</title>
+<link rel="modulepreload" href="/js/game.js">
+<link rel="modulepreload" href="/js/shared/util.js">
+<link rel="modulepreload" href="/js/shared/daily.js">
+<link rel="modulepreload" href="/js/shared/scenes.js">
+<link rel="modulepreload" href="/js/shared/validate.js">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -280,12 +285,13 @@ details.other[open] summary { margin-bottom: 10px; }
         </label>
         <label class="field"><span>Render resolution</span>
           <select id="set-scale">
-            <option value="1">100% (sharpest)</option>
-            <option value="0.75">75%</option>
-            <option value="0.5">50% (fastest)</option>
+            <option value="auto">Balanced (default)</option>
+            <option value="full">Sharpest</option>
+            <option value="75">75%</option>
+            <option value="50">50% (fastest)</option>
           </select>
         </label>
-        <p class="note">Sensitivity matches 1:1 only with <b>raw input</b>, which Chrome and Edge give to pointer-locked pages. Other browsers apply your OS pointer speed; set Windows pointer speed to 6/11 and turn off Enhance pointer precision. The mouse readouts update after a few seconds of play. On macOS, browsers receive cursor points rather than raw counts: if you need a very high sensitivity here, raise macOS tracking speed and your mouse DPI, then lower this sensitivity. That gives finer steps. Mouse smoothing hides any remaining steps at the cost of a few milliseconds of delay. Centering I 180 forces at least 103°.</p>
+        <p class="note">Sensitivity matches 1:1 only with <b>raw input</b>, which Chrome and Edge give to pointer-locked pages. Other browsers apply your OS pointer speed; set Windows pointer speed to 6/11 and turn off Enhance pointer precision. The mouse readouts update after a few seconds of play. On macOS, browsers receive cursor points rather than raw counts: if you need a very high sensitivity here, raise macOS tracking speed and your mouse DPI, then lower this sensitivity. That gives finer steps. Mouse smoothing hides any remaining steps at the cost of a few milliseconds of delay. Thinbot strafe forces at least 103°.</p>
       </div>
     </section>
 

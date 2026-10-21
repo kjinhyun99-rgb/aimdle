@@ -31,7 +31,18 @@ function today() {
   return { day: d.key, sceneIndex: d.idx, sceneNumber: d.scene, sceneId: SCENARIOS[d.idx].id, sceneName: SCENARIOS[d.idx].name, nextResetMs: (d.day + 1) * DAY_MS };
 }
 
-async function getScores(env, url) {
+async function getScores(env, url, ctx) {
+  // Cache each day's scores at Cloudflare's edge for 20 s, so busy results screens don't each
+  // query the database. Requests with a ?t= parameter (a player's own fresh view) skip the cache.
+  const cache = typeof caches !== 'undefined' && !url.searchParams.has('t') ? caches.default : null;
+  const cacheKey = new Request(url.origin + url.pathname + '?day=' + (url.searchParams.get('day') || ''));
+  if (cache) { const hit = await cache.match(cacheKey); if (hit) return hit; }
+  const res = await buildScores(env, url);
+  if (cache && res.status === 200) ctx.waitUntil(cache.put(cacheKey, res.clone()));
+  return res;
+}
+
+async function buildScores(env, url) {
   const day = url.searchParams.get('day') || dailyInfo(utcDay()).key;
   if (!DAY_RE.test(day)) return json({ error: 'Use ?day=YYYY-MM-DD.' }, 400);
   const { results } = await env.DB.prepare('SELECT score FROM runs WHERE day = ?1').bind(day).all();
@@ -85,12 +96,12 @@ async function postRun(env, request) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
     try {
       if (url.pathname === '/api/today' && request.method === 'GET') return json(today(), 200, { 'cache-control': 'no-store' });
-      if (url.pathname === '/api/scores' && request.method === 'GET') return await getScores(env, url);
+      if (url.pathname === '/api/scores' && request.method === 'GET') return await getScores(env, url, ctx);
       if (url.pathname === '/api/runs' && request.method === 'POST') return await postRun(env, request);
       return json({ error: 'Not found.' }, 404);
     } catch (e) {

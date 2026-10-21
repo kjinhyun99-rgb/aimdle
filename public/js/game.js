@@ -24,7 +24,7 @@ const HUD_ITEMS = [['timer', 'Timer'], ['session', 'Session stats (score, kills,
 const DEFAULTS = {
   game: 'valorant', sens: 0.4, cm360: 35, dpi: 800, fov: 103, fovFromGame: true,
   xhStyle: 'cross', xhColor: '#ffff00', xhSize: 5, xhThick: 2, xhGap: 3, xhOutline: true,
-  targetColor: '#ff2a2a', volume: 0.5, hitmarker: true, rawMode: 'auto', renderScale: 1, smoothing: 0, hitSound: 'pop', trackSound: 'soft', muted: false, inputSrc: 'mouse', boxRoom: true,
+  targetColor: '#ff2a2a', volume: 0.5, hitmarker: true, rawMode: 'auto', res: 'auto', smoothing: 0, hitSound: 'pop', trackSound: 'soft', muted: false, inputSrc: 'mouse', boxRoom: true,
   hud: Object.fromEntries(HUD_ITEMS.map(([k]) => [k, true])),
 };
 const S = Object.assign({}, DEFAULTS, store.get('settings', {}));
@@ -35,6 +35,8 @@ const saveSettings = () => store.set('settings', S);
 if (store.get('settingsV', 1) < 3) { S.rawMode = 'auto'; S.smoothing = 0; delete S.rawPref; store.set('settingsV', 3); saveSettings(); }
 // v4: box room on by default
 if (store.get('settingsV', 1) < 4) { S.boxRoom = true; store.set('settingsV', 4); saveSettings(); }
+// v5: render resolution setting replaces renderScale; keep a lowered choice if one was made
+if (store.get('settingsV', 1) < 5) { S.res = S.renderScale === 0.5 ? '50' : S.renderScale === 0.75 ? '75' : 'auto'; delete S.renderScale; store.set('settingsV', 5); saveSettings(); }
 const IS_MAC = /mac/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent);
 const wantRaw = () => S.rawMode === 'on' || (S.rawMode === 'auto' && !IS_MAC);
 function degPerCount() {
@@ -109,7 +111,7 @@ function gridPanel(w, h) {
 }
 
 const EDGE = 0.07;
-const ROOM = { wall: null, box: null };
+const ROOM = { wall: null, box: null, props: null };
 function buildRoom(room) {
   const { w, h, front, back } = room, d = back - front, x0 = -w / 2, x1 = w / 2;
   // wall only: the front wall floating in the void, outlined
@@ -125,11 +127,50 @@ function buildRoom(room) {
   const r = gridPanel(d, h); r.position.set(x1, h / 2, (front + back) / 2); r.rotation.y = -Math.PI / 2; boxG.add(r);
   const c = gridPanel(w, d); c.position.set(0, h, (front + back) / 2); c.rotation.x = Math.PI / 2; boxG.add(c);
   boxEdges(x0, x1, 0, h, front, back, EDGE, boxG);
-  world.add(wallG, boxG);
-  ROOM.wall = wallG; ROOM.box = boxG;
+  const propsG = new THREE.Group();
+  world.add(wallG, boxG, propsG);
+  ROOM.wall = wallG; ROOM.box = boxG; ROOM.props = propsG;
   applyRoomStyle();
   (room.props || []).forEach(addProp);
   if (room.platform) addDisc(0, 0.9, -0.6, 4, 0.9);
+}
+// Combine a group's static meshes and lines that share a material into one object each, so a
+// room draws in a handful of calls instead of dozens or hundreds. Everything is computed first
+// and the group is only changed at the end; on any error the group is left as it was.
+function mergeStatic(group) {
+  if (!group) return;
+  try {
+    group.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
+    const buckets = new Map(), victims = [];
+    group.traverse((o) => {
+      if (o === group || !(o.isMesh || o.isLineSegments) || o.userData.keep) return;
+      const key = (o.isLineSegments ? 'L' : 'M') + o.material.uuid;
+      if (!buckets.has(key)) buckets.set(key, { mat: o.material, lines: !!o.isLineSegments, geos: [] });
+      let g = o.geometry.clone();
+      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+      if (g.index) { const ni = g.toNonIndexed(); g.dispose(); g = ni; }
+      buckets.get(key).geos.push(g); victims.push(o);
+    });
+    if (victims.length < 2) { buckets.forEach((b) => b.geos.forEach((g) => g.dispose())); return; }
+    const merged = [];
+    for (const { mat, lines, geos } of buckets.values()) {
+      const out = new THREE.BufferGeometry();
+      for (const name of lines ? ['position'] : ['position', 'normal']) {
+        const parts = geos.map((g) => g.getAttribute(name).array);
+        const arr = new Float32Array(parts.reduce((n, a) => n + a.length, 0));
+        let off = 0; for (const a of parts) { arr.set(a, off); off += a.length; }
+        out.setAttribute(name, new THREE.BufferAttribute(arr, 3));
+      }
+      out.computeBoundingSphere();
+      const m = lines ? new THREE.LineSegments(out, mat) : new THREE.Mesh(out, mat);
+      m.raycast = noRay; merged.push(m);
+      geos.forEach((g) => g.dispose());
+    }
+    victims.forEach((o) => { o.parent.remove(o); if (!SHARED_GEO.has(o.geometry)) o.geometry.dispose(); });
+    group.children.filter((ch) => ch.isGroup && !ch.children.length).forEach((ch) => group.remove(ch));
+    merged.forEach((m) => group.add(m));
+  } catch (e) { console.warn('Static geometry merge skipped:', e); }
 }
 function applyRoomStyle() {
   if (!ROOM.wall) return;
@@ -138,16 +179,18 @@ function applyRoomStyle() {
 // Props (ledges, stairs, platforms): grey solids with thin hard edges.
 function addProp({ x0, x1, y0 = 0, y1, z0, z1 }) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), PROP_MAT);
-  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); m.raycast = noRay; world.add(m);
-  boxEdges(x0, x1, y0, y1, z0, z1, 0.045, world);
+  const parent = ROOM.props || world;
+  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); m.raycast = noRay; parent.add(m);
+  boxEdges(x0, x1, y0, y1, z0, z1, 0.045, parent);
   return m;
 }
 function addDisc(x, top, z, radius, thick) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, thick, 64), PROP_MAT);
-  m.position.set(x, top - thick / 2, z); m.raycast = noRay; world.add(m);
+  const parent = ROOM.props || world;
+  m.position.set(x, top - thick / 2, z); m.raycast = noRay; parent.add(m);
   [top, top - thick].forEach((y) => {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.03, 6, 96), EDGE_MAT);
-    ring.rotation.x = Math.PI / 2; ring.position.set(x, y, z); ring.raycast = noRay; world.add(ring);
+    ring.rotation.x = Math.PI / 2; ring.position.set(x, y, z); ring.raycast = noRay; parent.add(ring);
   });
   return m;
 }
@@ -163,7 +206,7 @@ function disposeWorld() {
     if (o.material && !SHARED_MAT.has(o.material)) o.material.dispose();
   });
   scene.remove(world); world = new THREE.Group(); scene.add(world);
-  ROOM.wall = ROOM.box = null;
+  ROOM.wall = ROOM.box = ROOM.props = null;
 }
 
 // ---------- engine ----------
@@ -218,7 +261,7 @@ function makeCtx(seed, room, eye) {
     addCube: (x, y, z, size) => clickTarget(BOX_GEO, size, x, y, z),
     addProp,
     // a prop that blocks shots (cover); a target behind it can't be hit through it
-    addCover(box) { const m = addProp(box); m.raycast = THREE.Mesh.prototype.raycast; G.occluders.push(m); return m; },
+    addCover(box) { const m = addProp(box); m.raycast = THREE.Mesh.prototype.raycast; m.userData.keep = true; G.occluders.push(m); return m; },
     addDisc,
     // y is the bot's foot height; bots may float. ground is where its shadow falls.
     addBot({ r, h, x, y, z, hp, head, ground = 0, barScale = 1, click = false }) {
@@ -263,6 +306,7 @@ function loadScenario(idx, mode) {
   camera.position.set(0, G.eye, 0);
   buildRoom(room);
   G.impl = G.scn.build(makeCtx(seed, room, G.eye));
+  [ROOM.wall, ROOM.box, ROOM.props].forEach(mergeStatic);
   G.stats = newStats(); G.meter = 0;
   G.yaw = 0; G.pitch = 0; G.pendX = G.pendY = 0; applyLook();
   G.timeLeft = 60;
@@ -276,9 +320,14 @@ function applyFov() {
   camera.fov = (2 * Math.atan(ref) * 180) / Math.PI; // vertical FOV, Hor+ from a 16:9 reference
   camera.updateProjectionMatrix();
 }
+// 'auto' renders at most 1.5 pixels per CSS pixel: barely softer on Retina/4K, about 40% less work.
+function pixelRatio() {
+  const dpr = window.devicePixelRatio || 1, full = Math.min(dpr, 2);
+  return S.res === 'full' ? full : S.res === '75' ? full * 0.75 : S.res === '50' ? full * 0.5 : Math.min(dpr, 1.5);
+}
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2) * S.renderScale);
+  renderer.setPixelRatio(pixelRatio());
   renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize);
@@ -593,10 +642,11 @@ const Board = {
     } catch (e) { this.online = false; return null; }
   },
   // -> { real, scores }
-  async field(key, scn) {
+  async field(key, scn, fresh = false) {
     if (this.online !== false) {
       try {
-        const r = await fetch(`/api/scores?day=${encodeURIComponent(key)}`, { cache: 'no-store' });
+        // the shared copy is cached at the edge for ~20 s; right after your own submit, skip it so your run is included
+        const r = await fetch(`/api/scores?day=${encodeURIComponent(key)}${fresh ? `&t=${Date.now()}` : ''}`, { cache: 'no-store' });
         if (!r.ok) throw new Error(r.status);
         const d = await r.json(); this.online = true;
         return { real: true, count: d.count, scores: d.scores };
@@ -687,7 +737,7 @@ function drawCurve(scores, you, scn) {
 async function renderStanding(score, includeSelf) {
   const scn = G.scn;
   // The field includes this run only after it has been submitted.
-  const f = await Board.field(G.daily.key, scn);
+  const f = await Board.field(G.daily.key, scn, includeSelf);
   const field = f.scores, wrap = $('#res-curve').parentElement;
   if (f.real && f.count - (includeSelf ? 1 : 0) < MIN_FIELD_FOR_CURVE) {
     wrap.hidden = true;
@@ -830,7 +880,7 @@ function syncSettingsUI() {
   $('#out-hz').textContent = MI.hz ? MI.hz : '–';
   $('#out-step').textContent = MI.step == null ? '–' : (MI.fractional ? MI.step.toFixed(2) : MI.step);
   $('#set-boxroom').checked = !!S.boxRoom; $('#set-input').value = S.inputSrc; $('#set-hitsound').value = S.hitSound; $('#set-tracksound').value = S.trackSound; $('#set-muted').checked = S.muted;
-  paintMute(); $('#set-raw').value = S.rawMode; $('#set-scale').value = String(S.renderScale); $('#set-smooth').value = String(S.smoothing);
+  paintMute(); $('#set-raw').value = S.rawMode; $('#set-scale').value = S.res; $('#set-smooth').value = String(S.smoothing);
   $('#set-xh-style').value = S.xhStyle; $('#set-xh-color').value = S.xhColor; $('#set-target-color').value = S.targetColor;
   [['xh-size', 'xhSize'], ['xh-thick', 'xhThick'], ['xh-gap', 'xhGap']].forEach(([id, k]) => { $('#set-' + id).value = S[k]; $('#o-' + id).textContent = S[k] + 'px'; });
   $('#set-xh-outline').checked = S.xhOutline; $('#set-hitmarker').checked = S.hitmarker;
@@ -856,7 +906,7 @@ $('#set-smooth').addEventListener('change', (e) => { S.smoothing = parseFloat(e.
 $('#set-boxroom').addEventListener('change', (e) => { S.boxRoom = e.target.checked; saveSettings(); applyRoomStyle(); });
 $('#set-input').addEventListener('change', (e) => { S.inputSrc = e.target.value; G.pendX = G.pendY = 0; changed(); });
 $('#set-raw').addEventListener('change', (e) => { S.rawMode = e.target.value; changed(); });
-$('#set-scale').addEventListener('change', (e) => { S.renderScale = parseFloat(e.target.value); changed(); resize(); });
+$('#set-scale').addEventListener('change', (e) => { S.res = e.target.value; changed(); resize(); });
 $('#set-xh-style').addEventListener('change', (e) => { S.xhStyle = e.target.value; changed(); });
 $('#set-xh-color').addEventListener('input', (e) => { S.xhColor = e.target.value; changed(); });
 $('#set-target-color').addEventListener('input', (e) => {

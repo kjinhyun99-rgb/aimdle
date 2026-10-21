@@ -538,52 +538,18 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'hiding-bot', name: 'Hiding bot', short: 'Hiding bot', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'A bot hides behind one of three covers and shuffles around back there. Click it the moment it peeks out to the left or right, or jumps up over the top. Shots into the cover are misses.',
-    facts: ['Click timing on peeks and jumps', '1 bot behind 3 covers', 'Score: kills × √accuracy'],
-    room: { w: 28, h: 12, front: -20 }, pop: [24, 7],
+    id: 'single-mini-bubble', name: 'Single mini bubble', short: 'Single mini bubble', kind: 'click', score: 'killsSqrtAcc',
+    desc: 'One mini bubble at a time, anywhere on the wall. A new one appears half a second after each pop. Find it, flick, click.',
+    facts: ['Click timing', '1 mini bubble, 0.5 s between spawns', 'Score: kills × √accuracy'],
+    room: { w: 34, h: 22, front: -20 }, pop: [46, 10],
     build(c) {
-      // Bot and covers stand on a platform raised to just below eye level, so the covers block
-      // your line of sight and the bot is only visible when it peeks or jumps.
-      const foot = c.eye - 1, zCover = -12, zBot = -13.5, half = 2.2, coverTop = foot + 2.1;
-      const r = 0.4, H = 1.8, hideX = half - r - 0.25, peekX = half + r + 0.45;
-      const covers = [-7.5, 0, 7.5];
-      c.addProp({ x0: -12.8, x1: 12.8, y0: foot - 0.3, y1: foot, z0: -15.5, z1: -10.5 });
-      covers.forEach((cx) => c.addCover({ x0: cx - half, x1: cx + half, y0: foot, y1: coverTop, z0: zCover - 0.4, z1: zCover + 0.4 }));
-      let bot = null, cx = 0, x = 0, y = 0, vy = 0, state = 'hide', t = 0, target = 0, lastCover = -1;
-      const spawn = () => {
-        let i = Math.floor(c.rng() * covers.length); if (i === lastCover) i = (i + 1 + Math.floor(c.rng() * 2)) % covers.length; lastCover = i;
-        cx = covers[i] * (zBot / zCover); x = lerp(-hideX, hideX, c.rng()); // directly behind the cover as seen from the player y = 0; vy = 0; state = 'hide'; t = lerp(0.4, 1.0, c.mrng()); target = x;
-        bot = c.addBot({ r, h: H, x: cx + x, y: foot, z: zBot, hp: Infinity, ground: foot, click: true });
-      };
+      const rect = wallRect(c.room, 1.5), z = c.room.front + 0.5, r = 0.25;
+      let cur = null, wait = 0, last = null;
+      const spawn = () => { const p = rectSpot(c, rect, last ? [last] : [], 6); last = p; cur = c.addSphere(p.x, p.y, z, r); };
       spawn();
       return {
-        update(dt) {
-          t -= dt;
-          if (state === 'hide') {
-            // shuffle behind the cover, then peek or jump
-            if (Math.abs(target - x) < 0.05) target = lerp(-hideX, hideX, c.mrng());
-            x += clamp(target - x, -2.5 * dt, 2.5 * dt);
-            if (t <= 0) {
-              if (c.mrng() < 0.5) { state = 'jump'; vy = lerp(7.5, 8.5, c.mrng()); } // rises about 1.5 units above the cover
-              else { state = 'out'; target = (c.mrng() < 0.5 ? -1 : 1) * peekX; }
-            }
-          } else if (state === 'out') {
-            x += clamp(target - x, -8 * dt, 8 * dt);
-            if (Math.abs(target - x) < 0.01) { state = 'hold'; t = lerp(0.25, 0.5, c.mrng()); }
-          } else if (state === 'hold') {
-            if (t <= 0) { state = 'back'; target = Math.sign(target) * lerp(0, hideX, c.mrng()); }
-          } else if (state === 'back') {
-            x += clamp(target - x, -8 * dt, 8 * dt);
-            if (Math.abs(target - x) < 0.01) { state = 'hide'; t = lerp(0.5, 1.3, c.mrng()); }
-          }
-          if (state === 'jump') {
-            vy -= 20 * dt; y += vy * dt;
-            if (y <= 0) { y = 0; vy = 0; state = 'hide'; t = lerp(0.5, 1.3, c.mrng()); }
-          }
-          if (bot) c.placeBot(bot, cx + x, foot + y, zBot);
-        },
-        onClickKill(k) { c.remove(k); bot = null; spawn(); },
+        update(dt) { if (!cur) { wait -= dt; if (wait <= 0) spawn(); } },
+        onClickKill(t) { c.remove(t); cur = null; wait = 0.5; },
       };
     },
   },
@@ -787,7 +753,7 @@ export const TAGS = {
   '360-strafe-bubble': ['tracking', 'bubble', 'long strafe', 'invincible'],
   'air-bot': ['tracking', 'bot', 'invincible'],
   'gliding-bubbles': ['tracking', 'bubble'],
-  'hiding-bot': ['click-timing', 'bot'],
+  'single-mini-bubble': ['click-timing', 'bubble', 'flick'],
   'hopping-bot-180': ['tracking', 'bot', '180', 'short strafe', 'invincible'],
   'jumping-thin-bot': ['tracking', 'bot', 'short strafe', 'invincible'],
   'thinbot-gauntlet': ['tracking', 'bot'],
