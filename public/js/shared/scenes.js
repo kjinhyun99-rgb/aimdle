@@ -539,13 +539,13 @@ export const SCENARIOS = [
   },
   {
     id: 'near-far-bubbles', name: 'Near far bubbles', short: 'Near far bubbles', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Two bubbles: one floating close to you, one far away on the wall. The near one can sit right in front of the far one and block it. Each respawns instantly when popped.',
-    facts: ['Click timing at two depths', '1 near bubble, 1 far bubble', 'Score: kills × √accuracy'],
-    room: { w: 34, h: 22, front: -20 }, pop: [88, 21],
+    desc: 'Two bubbles: one floating right in front of your face, one far away on a distant wall. The near one can sit right in front of the far one and block it. Each respawns instantly when popped.',
+    facts: ['Click timing at two depths', 'Near bubble 2 units away, far bubble 40', 'Score: kills × √accuracy'],
+    room: { w: 64, h: 40, front: -41.5 }, pop: [80, 20],
     build(c) {
       // Both bubbles are placed by direction from the eye, inside the same window of view, so the
       // near one regularly lines up in front of the far one. The nearest bubble on a shot's line is hit.
-      const NEAR = 6, FAR = -c.room.front - 0.9, rNear = 0.3, rFar = 0.75;
+      const NEAR = 2, FAR = 40, rNear = 0.15, rFar = 1.0; // near looks big (≈4.3°), far looks small (≈1.4°)
       const dirTo = (a, e) => [Math.sin(a) * Math.cos(e), Math.sin(e), -Math.cos(a) * Math.cos(e)];
       const randDir = () => [lerp(-0.6, 0.6, c.rng()), lerp(-0.35, 0.35, c.rng())];
       let near = null, far = null, nearDir = [0, 0], farDir = [0, 0];
