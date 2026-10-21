@@ -218,9 +218,9 @@ export const SCENARIOS = [
     id: 'thinbot-strafe', name: 'Thinbot strafe', short: 'Thinbot strafe', kind: 'track', score: 'damage',
     desc: 'A thin bot glides along a 180° arc around you at a steady pace and turns back at the edges. Keep it centered. Field of view is at least 103°.',
     facts: ['Tracking', 'Thin bot on a 180° arc', 'Min FOV 103°', 'Score: damage (100/s on target)'],
-    room: { w: 34, h: 12, front: -18 }, pop: [4100, 800], fovMin: 103,
+    room: { w: 34, h: 12, front: -18, eye: 1.7 }, pop: [4100, 800], fovMin: 103,
     build(c) {
-      const R = 11, lim = Math.PI / 2 - 0.06, foot = c.eye - 1.15;
+      const R = 11, lim = Math.PI / 2 - 0.06, foot = 0; // stands on the floor with the player
       let th = lerp(-0.4, 0.4, c.rng()), dir = c.rng() < 0.5 ? -1 : 1, t = 0, nextFlip = lerp(3, 6, c.mrng());
       const base = 0.62; // rad/s ≈ 35°/s
       const bot = c.addBot({ r: 0.2, h: 2.3, x: 0, y: foot, z: -R, hp: Infinity });
@@ -239,7 +239,7 @@ export const SCENARIOS = [
     id: 'tracking-bot', name: 'Tracking bot', short: 'Tracking bot', kind: 'track', score: 'damage',
     desc: 'Fast, be precise. One quick, twitchy bot at a time, above or below you. Track it until it dies and the next one appears somewhere else.',
     facts: ['Tracking + target switching', '1.2 s of tracking per bot', 'Score: damage (100/s on target)'],
-    room: { w: 34, h: 16, front: -20 }, pop: [2700, 750],
+    room: { w: 34, h: 16, front: -20, eye: 1.7 }, pop: [2700, 750],
     build(c) {
       let bot = null, st = null, z = -12, foot = 0, lastA = 0;
       const spawn = () => {
@@ -247,7 +247,7 @@ export const SCENARIOS = [
         for (let i = 0; i < 20; i++) { a = lerp(-0.66, 0.66, c.rng()); if (Math.abs(a - lastA) > 0.26) break; }
         lastA = a;
         const d = lerp(10, 13, c.rng()); const x0 = d * Math.sin(a); z = -d * Math.cos(a);
-        foot = c.eye - 0.92 + lerp(-3.2, 3.2, c.rng());
+        foot = c.rng() < 0.5 ? 0 : lerp(0.5, 4, c.rng()); // on the floor, or floating above it
         st = makeStrafer(c.mrng, { x: x0, xMin: Math.max(-13, x0 - 4.5), xMax: Math.min(13, x0 + 4.5), speed: [5, 7.2], dur: [0.22, 0.75], accel: 45 });
         bot = c.addBot({ r: 0.42, h: 1.85, x: x0, y: foot, z, hp: 120 });
       };
@@ -454,9 +454,9 @@ export const SCENARIOS = [
     id: 'close-strafe-bot', name: 'Close strafe bot', short: 'Close strafe bot', kind: 'track', score: 'damage',
     desc: 'A tough bot right in front of you that strafes, steps toward and away from you, and jumps. Wear down its big health bar; a new one replaces it.',
     facts: ['Reactive tracking', 'Very close: strafes, steps in and out, jumps', '3 s of tracking per bot', 'Score: damage (100/s on target)'],
-    room: { w: 24, h: 12, front: -14 }, pop: [3000, 800],
+    room: { w: 24, h: 12, front: -14, eye: 1.7 }, pop: [3000, 800],
     build(c) {
-      const foot = c.eye - 1;
+      const foot = 0; // on the floor with the player
       let bot = null, sx = null, sz = null;
       const spawn = () => {
         sx = makeStrafer(c.mrng, { x: lerp(-3, 3, c.rng()), xMin: -4.5, xMax: 4.5, speed: [6.25, 9.4], dur: [0.3, 0.9], accel: 45, preferFlip: 0.4, jumpChance: 0.15, jumpV: 6 });
@@ -538,18 +538,31 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'single-mini-bubble', name: 'Single mini bubble', short: 'Single mini bubble', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'One mini bubble at a time, anywhere on the wall. A new one appears half a second after each pop. Find it, flick, click.',
-    facts: ['Click timing', '1 mini bubble, 0.5 s between spawns', 'Score: kills × √accuracy'],
-    room: { w: 34, h: 22, front: -20 }, pop: [46, 10],
+    id: 'near-far-bubbles', name: 'Near far bubbles', short: 'Near far bubbles', kind: 'click', score: 'killsSqrtAcc',
+    desc: 'Two bubbles: one floating close to you, one far away on the wall. The near one can sit right in front of the far one and block it. Each respawns instantly when popped.',
+    facts: ['Click timing at two depths', '1 near bubble, 1 far bubble', 'Score: kills × √accuracy'],
+    room: { w: 34, h: 22, front: -20 }, pop: [88, 21],
     build(c) {
-      const rect = wallRect(c.room, 1.5), z = c.room.front + 0.5, r = 0.25;
-      let cur = null, wait = 0, last = null;
-      const spawn = () => { const p = rectSpot(c, rect, last ? [last] : [], 6); last = p; cur = c.addSphere(p.x, p.y, z, r); };
-      spawn();
+      // Both bubbles are placed by direction from the eye, inside the same window of view, so the
+      // near one regularly lines up in front of the far one. The nearest bubble on a shot's line is hit.
+      const NEAR = 6, FAR = -c.room.front - 0.9, rNear = 0.3, rFar = 0.75;
+      const dirTo = (a, e) => [Math.sin(a) * Math.cos(e), Math.sin(e), -Math.cos(a) * Math.cos(e)];
+      const randDir = () => [lerp(-0.6, 0.6, c.rng()), lerp(-0.35, 0.35, c.rng())];
+      let near = null, far = null, nearDir = [0, 0], farDir = [0, 0];
+      const placeFar = (ae) => { farDir = ae; const d = dirTo(...ae), k = FAR / -d[2]; far = c.addSphere(d[0] * k, c.eye + d[1] * k, -FAR, rFar); };
+      const placeNear = (ae) => { nearDir = ae; const d = dirTo(...ae); near = c.addSphere(d[0] * NEAR, c.eye + d[1] * NEAR, d[2] * NEAR, rNear); };
+      // a new bubble lands near the other one's direction 35% of the time, so eclipses happen often
+      const pick = (other) => {
+        if (c.rng() < 0.35) return [clamp(other[0] + lerp(-0.05, 0.05, c.rng()), -0.6, 0.6), clamp(other[1] + lerp(-0.05, 0.05, c.rng()), -0.35, 0.35)];
+        for (let i = 0; i < 20; i++) { const ae = randDir(); if (Math.hypot(ae[0] - other[0], ae[1] - other[1]) > 0.25) return ae; }
+        return randDir();
+      };
+      placeFar(randDir()); placeNear(pick(farDir));
       return {
-        update(dt) { if (!cur) { wait -= dt; if (wait <= 0) spawn(); } },
-        onClickKill(t) { c.remove(t); cur = null; wait = 0.5; },
+        onClickKill(t) {
+          c.remove(t);
+          if (t === near) placeNear(pick(farDir)); else placeFar(pick(nearDir));
+        },
       };
     },
   },
@@ -557,9 +570,9 @@ export const SCENARIOS = [
     id: 'hopping-bot-180', name: 'Hopping bot 180', short: 'Hopping bot 180', kind: 'track', score: 'damage',
     desc: 'A bot hopping and strafing along a 180° arc around you. Its direction changes are quick and it leaves the ground often.',
     facts: ['Reactive tracking', 'Hops along a 180° arc', 'Score: damage (100/s on target)'],
-    room: { w: 30, h: 12, front: -16 }, pop: [2700, 750],
+    room: { w: 30, h: 12, front: -16, eye: 1.7 }, pop: [2700, 750],
     build(c) {
-      const R = 10, foot = c.eye - 1.5, lim = Math.PI / 2 - 0.1;
+      const R = 10, foot = 0, lim = Math.PI / 2 - 0.1;
       let th = 0, w = 0, tw = 0, t = 0, y = 0, vy = 0;
       const bot = c.addBot({ r: 0.4, h: 1.8, x: 0, y: foot, z: -R, hp: Infinity });
       return {
@@ -580,21 +593,20 @@ export const SCENARIOS = [
   },
   {
     id: 'jumping-thin-bot', name: 'Jumping thin bot', short: 'Jumping thin bot', kind: 'track', score: 'damage',
-    desc: 'A thin bot close in front of you that jumps high again and again while strafing left and right. Follow it all the way up and back down.',
-    facts: ['Precise vertical + horizontal tracking', 'Thin bot, high jumps, close range', 'Score: damage (100/s on target)'],
-    room: { w: 24, h: 14, front: -14 }, pop: [2700, 800],
+    desc: 'A thin bot close in front of you that jumps very high, straight up and down, with a short pause between jumps. Follow it all the way up and back down.',
+    facts: ['Precise vertical tracking', 'Thin bot, high vertical jumps, close range', 'Score: damage (100/s on target)'],
+    room: { w: 24, h: 16, front: -14 }, pop: [2900, 800],
     build(c) {
-      const z = -7, foot = c.eye - 3; // stands on a platform below eye level; jumps rise well above it
-      c.addProp({ x0: -5.5, x1: 5.5, y0: foot - 0.3, y1: foot, z0: z - 1.2, z1: z + 1.2 });
-      const sx = makeStrafer(c.mrng, { xMin: -4.5, xMax: 4.5, speed: [3.5, 5.5], dur: [0.4, 1.2], accel: 30 });
+      const z = -7, foot = c.eye - 3; // stands on a small platform below eye level; jumps rise well above it
+      c.addProp({ x0: -1.6, x1: 1.6, y0: foot - 0.3, y1: foot, z0: z - 1.2, z1: z + 1.2 });
       const bot = c.addBot({ r: 0.15, h: 2.2, x: 0, y: foot, z, hp: Infinity, ground: foot });
-      let y = 0, vy = 0, wait = 0.3;
+      let y = 0, vy = 0, wait = 0.4;
       return {
         update(dt) {
-          sx.update(dt);
-          if (y === 0 && vy === 0) { wait -= dt; if (wait <= 0) { vy = lerp(11, 13, c.mrng()); wait = lerp(0.05, 0.35, c.mrng()); } }
+          // straight up and down, no sideways movement; pauses between jumps like Leap bot
+          if (y === 0 && vy === 0) { wait -= dt; if (wait <= 0) { vy = lerp(13, 15.4, c.mrng()); wait = lerp(0.3, 0.9, c.mrng()); } }
           if (vy !== 0 || y > 0) { vy -= 20 * dt; y += vy * dt; if (y <= 0) { y = 0; vy = 0; } }
-          c.placeBot(bot, sx.x, foot + y, z);
+          c.placeBot(bot, 0, foot + y, z);
         },
       };
     },
@@ -603,10 +615,10 @@ export const SCENARIOS = [
     id: 'thinbot-gauntlet', name: 'Thinbot gauntlet', short: 'Thinbot gauntlet', kind: 'track', score: 'damage',
     desc: 'Thin bots one after another. Track each one until it dies; the next appears somewhere else in front of you.',
     facts: ['Precise tracking + switching', 'Thin bots, 1.5 s of tracking each', 'Score: damage (100/s on target)'],
-    room: { w: 30, h: 12, front: -18 }, pop: [2700, 750],
+    room: { w: 30, h: 12, front: -18, eye: 1.7 }, pop: [2700, 750],
     build(c) {
       let bot = null, st = null, z = -11, lastA = 0;
-      const foot = c.eye - 1.15;
+      const foot = 0; // on the floor with the player
       const spawn = () => {
         let a = 0;
         for (let i = 0; i < 20; i++) { a = lerp(-0.7, 0.7, c.rng()); if (Math.abs(a - lastA) > 0.3) break; }
@@ -626,7 +638,7 @@ export const SCENARIOS = [
     id: 'bouncy-tracking-bubbles', name: 'Bouncy tracking bubbles', short: 'Bouncy tracking bubbles', kind: 'track', score: 'damage',
     desc: 'Five small bubbles bouncing on the floor in front of you, each at its own height and rhythm; a few bounce all the way to the ceiling. Each dies after a short burst of tracking.',
     facts: ['Tracking bouncing targets', '5 small bubbles, 0.4 s of tracking each', 'Score: damage (100/s on target)'],
-    room: { w: 28, h: 12, front: -18 }, pop: [2100, 650],
+    room: { w: 28, h: 12, front: -18, eye: 1.7 }, pop: [2100, 650],
     build(c) {
       const GRAV = 14 * 1.44, r = 0.35, items = []; // 20% faster than before, same bounce heights
       const add = () => {
@@ -753,7 +765,7 @@ export const TAGS = {
   '360-strafe-bubble': ['tracking', 'bubble', 'long strafe', 'invincible'],
   'air-bot': ['tracking', 'bot', 'invincible'],
   'gliding-bubbles': ['tracking', 'bubble'],
-  'single-mini-bubble': ['click-timing', 'bubble', 'flick'],
+  'near-far-bubbles': ['click-timing', 'bubble', 'flick'],
   'hopping-bot-180': ['tracking', 'bot', '180', 'short strafe', 'invincible'],
   'jumping-thin-bot': ['tracking', 'bot', 'short strafe', 'invincible'],
   'thinbot-gauntlet': ['tracking', 'bot'],
