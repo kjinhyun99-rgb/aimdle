@@ -171,7 +171,7 @@ const G = {
   state: 'intro', mode: 'free', scnIdx: 0, scn: null, impl: null, targets: [],
   stats: null, locked: false, firing: false, rawInput: null,
   countdown: 0, resumeTo: 'free', daily: dailyInfo(), yaw: 0, pitch: 0, pendX: 0, pendY: 0,
-  meter: 0, tickCd: 0, run: null,
+  meter: 0, tickCd: 0, run: null, occluders: [],
 };
 const newStats = () => ({ kills: 0, clickShots: 0, clickHits: 0, trackFire: 0, trackOn: 0, damage: 0, sphereKills: 0, botKills: 0, killTimes: [], activeMs: 0 });
 
@@ -217,9 +217,11 @@ function makeCtx(seed, room, eye) {
     },
     addCube: (x, y, z, size) => clickTarget(BOX_GEO, size, x, y, z),
     addProp,
+    // a prop that blocks shots (cover); a target behind it can't be hit through it
+    addCover(box) { const m = addProp(box); m.raycast = THREE.Mesh.prototype.raycast; G.occluders.push(m); return m; },
     addDisc,
     // y is the bot's foot height; bots may float. ground is where its shadow falls.
-    addBot({ r, h, x, y, z, hp, head, ground = 0, barScale = 1 }) {
+    addBot({ r, h, x, y, z, hp, head, ground = 0, barScale = 1, click = false }) {
       const mat = mkMat(color);
       const grp = new THREE.Group();
       const cyl = new THREE.Mesh(new THREE.CylinderGeometry(r, r, Math.max(0.01, h - 2 * r), 28), mat); cyl.position.y = h / 2;
@@ -234,7 +236,7 @@ function makeCtx(seed, room, eye) {
       }
       const shadow = new THREE.Mesh(SHADOW_GEO, SHADOW_MAT); shadow.rotation.x = -Math.PI / 2; shadow.scale.setScalar(r * 1.6);
       world.add(grp, shadow);
-      const t = { kind: 'track', mesh: grp, mat, headMat, shadow, hp, maxHp: hp, flash: 0, ground: ground + 0.02 };
+      const t = { kind: click ? 'click' : 'track', mesh: grp, mat, headMat, shadow, hp, maxHp: hp, flash: 0, ground: ground + 0.02 };
       if (Number.isFinite(hp)) { Object.assign(t, makeBar(grp, (head ? h + head.gap + head.r * 2 : h) + 0.38 * barScale)); t.bar.scale.setScalar(barScale); }
       grp.traverse((o) => { o.userData.t = t; });
       ctx.placeBot(t, x, y, z); G.targets.push(t); return t;
@@ -252,7 +254,7 @@ function makeCtx(seed, room, eye) {
 
 function loadScenario(idx, mode) {
   disposeWorld();
-  G.targets = [];
+  G.targets = []; G.occluders = [];
   G.scnIdx = idx; G.scn = SCENARIOS[idx]; G.mode = mode;
   // Ranked runs use the day's seed so everyone gets the same spawn sequence; free play is random.
   const seed = mode === 'challenge' ? hashStr(G.daily.key + ':' + G.scn.id) : (Math.random() * 2 ** 32) >>> 0;
@@ -308,8 +310,9 @@ function rayHit(kind) {
   const list = G.targets.filter((t) => t.kind === kind).map((t) => t.mesh);
   if (!list.length) return undefined;
   raycaster.setFromCamera(CENTER, camera);
-  const hits = raycaster.intersectObjects(list, true);
-  return hits.length ? hits[0].object.userData.t : null;
+  // cover (G.occluders) is tested too: if the nearest thing hit is cover, the shot is blocked
+  const hits = raycaster.intersectObjects(G.occluders.length ? list.concat(G.occluders) : list, true);
+  return hits.length ? hits[0].object.userData.t || null : null;
 }
 const isPlaying = () => G.locked && (G.state === 'free' || G.state === 'challenge');
 
