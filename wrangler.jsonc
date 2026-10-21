@@ -17,7 +17,7 @@
     {
       "binding": "DB",
       "database_name": "aimdle",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "database_id": "004ca469-920c-4d65-af8f-60d7df15ecc2",
       "migrations_dir": "migrations"
     }
   ],
