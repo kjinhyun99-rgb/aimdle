@@ -139,15 +139,19 @@ export const SCENARIOS = [
     build: wallTargets({ count: 6, r: 0.36, depth: 0.6, margin: 1.5, minSep: 3 }),
   },
   {
-    id: 'smooth-strafe-bot', name: 'Smooth strafe bot', short: 'Smooth strafe bot', kind: 'track', score: 'damage',
-    desc: 'Mid-range long-strafe tracking. The bot commits to long, steady strafes with smooth direction changes. Stay glued to it.',
-    facts: ['Tracking', 'Mid range, long strafes', 'Score: damage (100/s on target)'],
-    room: { w: 34, h: 14, front: -20 }, pop: [3300, 800],
+    id: 'tracking-bubbles', name: 'Tracking bubbles', short: 'Tracking bubbles', kind: 'track', score: 'damage',
+    desc: 'Six small bubbles slide across the wall and bounce off its edges. Track one until its health runs out, then switch to the next.',
+    facts: ['Tracking + switching', '6 bubbles bouncing on the wall, 1 s of tracking each', 'Score: damage (100/s on target)'],
+    room: { w: 32, h: 22, front: -18 }, pop: [3000, 800],
     build(c) {
-      const foot = c.eye - 0.95;
-      const st = makeStrafer(c.mrng, { xMin: -9, xMax: 9, speed: [5.4, 7.8], dur: [1.4, 3.0], accel: 16.8, preferFlip: 0.7 });
-      const bot = c.addBot({ r: 0.45, h: 1.9, x: 0, y: foot, z: -13, hp: Infinity });
-      return { update(dt) { st.update(dt); c.placeBot(bot, st.x, foot, -13); } };
+      const z = c.room.front + 0.6, b = Object.assign(wallRect(c.room, 1.5), { z0: z, z1: z });
+      const items = [];
+      const add = () => { const m = makeBouncer(c.rng, b, [3, 5]); items.push({ m, t: c.addTrackSphere(m.x, m.y, m.z, 0.4, 100) }); };
+      for (let i = 0; i < 6; i++) add();
+      return {
+        update(dt) { items.forEach(({ m, t }) => { m.update(dt); t.mesh.position.set(m.x, m.y, m.z); }); },
+        onBotKill(t) { c.remove(t); items.splice(items.findIndex((x) => x.t === t), 1); add(); },
+      };
     },
   },
   {
@@ -515,8 +519,8 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'smooth-spheres', name: 'Smooth spheres', short: 'Smooth spheres', kind: 'track', score: 'damage',
-    desc: 'Three spheres gliding on smooth curves at different depths. Track one until its health runs out, then move smoothly to the next.',
+    id: 'gliding-bubbles', name: 'Gliding bubbles', short: 'Gliding bubbles', kind: 'track', score: 'damage',
+    desc: 'Three bubbles gliding on smooth curves at different depths. Track one until its health runs out, then move smoothly to the next.',
     facts: ['Smooth tracking + switching', '3 spheres, 0.75 s of tracking each', 'Score: damage (100/s on target)'],
     room: { w: 26, h: 18, front: -18 }, pop: [2800, 750],
     build(c) {
@@ -555,7 +559,7 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'bounce-bot-180', name: 'Bounce bot 180', short: 'Bounce bot 180', kind: 'track', score: 'damage',
+    id: 'hopping-bot-180', name: 'Hopping bot 180', short: 'Hopping bot 180', kind: 'track', score: 'damage',
     desc: 'A bot hopping and strafing along a 180° arc around you. Its direction changes are quick and it leaves the ground often.',
     facts: ['Reactive tracking', 'Hops along a 180° arc', 'Score: damage (100/s on target)'],
     room: { w: 30, h: 12, front: -16 }, pop: [2700, 750],
@@ -580,16 +584,24 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'rising-thin-bot', name: 'Rising thin bot', short: 'Rising thin bot', kind: 'track', score: 'damage',
-    desc: 'A very thin bot strafing side to side while slowly rising and sinking, so your aim has to drift up and down as you track.',
-    facts: ['Precise tracking', 'Thin bot, rises and sinks while strafing', 'Score: damage (100/s on target)'],
-    room: { w: 28, h: 16, front: -18 }, pop: [2900, 800],
+    id: 'jumping-thin-bot', name: 'Jumping thin bot', short: 'Jumping thin bot', kind: 'track', score: 'damage',
+    desc: 'A thin bot close in front of you that jumps high again and again while strafing left and right. Follow it all the way up and back down.',
+    facts: ['Precise vertical + horizontal tracking', 'Thin bot, high jumps, close range', 'Score: damage (100/s on target)'],
+    room: { w: 24, h: 14, front: -14 }, pop: [2700, 800],
     build(c) {
-      const z = -12, phase = c.mrng() * Math.PI * 2;
-      let t = 0;
-      const sx = makeStrafer(c.mrng, { xMin: -7, xMax: 7, speed: [4, 6], dur: [0.5, 1.3], accel: 25 });
-      const bot = c.addBot({ r: 0.15, h: 2.2, x: 0, y: c.eye - 1, z, hp: Infinity });
-      return { update(dt) { t += dt; sx.update(dt); c.placeBot(bot, sx.x, c.eye - 1 + 3.2 * Math.sin(0.55 * t + phase), z); } };
+      const z = -7, foot = c.eye - 3; // stands on a platform below eye level; jumps rise well above it
+      c.addProp({ x0: -5.5, x1: 5.5, y0: foot - 0.3, y1: foot, z0: z - 1.2, z1: z + 1.2 });
+      const sx = makeStrafer(c.mrng, { xMin: -4.5, xMax: 4.5, speed: [3.5, 5.5], dur: [0.4, 1.2], accel: 30 });
+      const bot = c.addBot({ r: 0.15, h: 2.2, x: 0, y: foot, z, hp: Infinity, ground: foot });
+      let y = 0, vy = 0, wait = 0.3;
+      return {
+        update(dt) {
+          sx.update(dt);
+          if (y === 0 && vy === 0) { wait -= dt; if (wait <= 0) { vy = lerp(11, 13, c.mrng()); wait = lerp(0.05, 0.35, c.mrng()); } }
+          if (vy !== 0 || y > 0) { vy -= 20 * dt; y += vy * dt; if (y <= 0) { y = 0; vy = 0; } }
+          c.placeBot(bot, sx.x, foot + y, z);
+        },
+      };
     },
   },
   {
@@ -616,17 +628,17 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'bouncy-balls', name: '5 Bouncy balls', short: '5 Bouncy balls', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Five small balls bouncing on the floor in front of you, each at its own height and rhythm; a few bounce all the way to the ceiling. Time your clicks to their bounces.',
-    facts: ['Click timing on bouncing targets', '5 small balls', 'Score: kills × √accuracy'],
-    room: { w: 28, h: 12, front: -18 }, pop: [80, 20],
+    id: 'bouncy-tracking-bubbles', name: 'Bouncy tracking bubbles', short: 'Bouncy tracking bubbles', kind: 'track', score: 'damage',
+    desc: 'Five small bubbles bouncing on the floor in front of you, each at its own height and rhythm; a few bounce all the way to the ceiling. Each dies after a short burst of tracking.',
+    facts: ['Tracking bouncing targets', '5 small bubbles, 0.4 s of tracking each', 'Score: damage (100/s on target)'],
+    room: { w: 28, h: 12, front: -18 }, pop: [2100, 650],
     build(c) {
-      const GRAV = 14, r = 0.35, items = [];
+      const GRAV = 14 * 1.44, r = 0.35, items = []; // 20% faster than before, same bounce heights
       const add = () => {
         const apex = 2.5 + (c.room.h - 0.5 - r - 2.5) * c.rng() ** 1.6; // most bounce low-to-mid, a few reach the ceiling
-        const it = { x: lerp(-8, 8, c.rng()), z: lerp(-14, -7, c.rng()), vx: lerp(-1.2, 1.2, c.mrng()), vz: lerp(-0.6, 0.6, c.mrng()), bounceV: Math.sqrt(2 * GRAV * apex) };
+        const it = { x: lerp(-8, 8, c.rng()), z: lerp(-14, -7, c.rng()), vx: lerp(-1.44, 1.44, c.mrng()), vz: lerp(-0.72, 0.72, c.mrng()), bounceV: Math.sqrt(2 * GRAV * apex) };
         it.y = r + lerp(0.3, 1, c.rng()) * apex; it.vy = 0;
-        it.t = c.addSphere(it.x, it.y, it.z, r);
+        it.t = c.addTrackSphere(it.x, it.y, it.z, r, 40);
         items.push(it);
       };
       for (let i = 0; i < 5; i++) add();
@@ -641,7 +653,7 @@ export const SCENARIOS = [
             it.t.mesh.position.set(it.x, it.y, it.z);
           }
         },
-        onClickKill(t) { const i = items.findIndex((it) => it.t === t); c.remove(t); items.splice(i, 1); add(); },
+        onBotKill(t) { const i = items.findIndex((it) => it.t === t); c.remove(t); items.splice(i, 1); add(); },
       };
     },
   },
@@ -725,7 +737,7 @@ export const SCENARIOS = [
 export const TAGS = {
   'sandbox': ['tracking', 'click-timing', 'bot', 'bubble'],
   '6-bubbles-mini': ['click-timing', 'bubble', 'flick'],
-  'smooth-strafe-bot': ['tracking', 'bot', 'long strafe', 'invincible'],
+  'tracking-bubbles': ['tracking', 'bubble'],
   '6-bubbles': ['click-timing', 'bubble', 'flick'],
   '2-bubbles-close': ['click-timing', 'bubble', 'flick'],
   '3-cubes': ['click-timing', 'flick'],
@@ -745,12 +757,12 @@ export const TAGS = {
   'close-strafe-bot': ['tracking', 'bot', 'short strafe', 'fast strafe'],
   '360-strafe-bubble': ['tracking', 'bubble', 'long strafe', 'invincible'],
   'air-bot': ['tracking', 'bot', 'invincible'],
-  'smooth-spheres': ['tracking', 'bubble'],
+  'gliding-bubbles': ['tracking', 'bubble'],
   'bot-plaza': ['tracking', 'bot', 'short strafe'],
-  'bounce-bot-180': ['tracking', 'bot', '180', 'short strafe', 'invincible'],
-  'rising-thin-bot': ['tracking', 'bot', 'short strafe', 'invincible'],
+  'hopping-bot-180': ['tracking', 'bot', '180', 'short strafe', 'invincible'],
+  'jumping-thin-bot': ['tracking', 'bot', 'short strafe', 'invincible'],
   'thinbot-gauntlet': ['tracking', 'bot'],
-  'bouncy-balls': ['click-timing', 'bubble'],
+  'bouncy-tracking-bubbles': ['tracking', 'bubble'],
   'mini-bubble-track': ['tracking', 'bubble', 'invincible'],
   'leap-bot': ['tracking', 'bot', 'invincible'],
   'headshot-bot': ['click-timing', 'bot', 'headshot'],
