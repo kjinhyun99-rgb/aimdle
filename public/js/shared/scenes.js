@@ -108,7 +108,7 @@ export function makeBouncer(rng, b, speed) {
 export const SCENARIOS = [
   {
     id: 'sandbox', name: 'Sandbox', short: 'Sandbox', kind: 'mixed', score: 'sandbox',
-    desc: 'A mix of hitscan tracking and click timing. Track the bot strafing along the ledge until it dies, then pop three bubbles that appear one at a time, then the bot returns.',
+    desc: 'A mix of hitscan tracking and click timing.',
     facts: ['Tracking + clicking', 'Hold to fire on the bot, click the bubbles', '3 bubbles, one at a time', 'Score: damage + 50 per bubble'],
     // ground-level camera, as in the reference; the only room that isn't centered on the player
     room: { w: 30, h: 9, front: -30, eye: 1.7, props: SANDBOX_PROPS }, pop: [2300, 650],
@@ -133,14 +133,14 @@ export const SCENARIOS = [
   },
   {
     id: '6-bubbles-mini', name: '6 Bubbles mini', short: '6 Bubbles mini', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'One click is one kill. Six tiny bubbles spread across a single wall; every kill respawns one elsewhere. Pure precision.',
+    desc: 'Six tiny bubble targets spread across a single wall.',
     facts: ['Click timing', '6 tiny bubbles', 'Score: kills × √accuracy'],
     room: { w: 36, h: 24, front: -20 }, pop: [68, 17],
     build: wallTargets({ count: 6, r: 0.36, depth: 0.6, margin: 1.5, minSep: 3 }),
   },
   {
     id: 'tracking-bubbles', name: 'Tracking bubbles', short: 'Tracking bubbles', kind: 'track', score: 'damage',
-    desc: 'Six small bubbles slide across the wall and bounce off its edges. Track one until its health runs out, then switch to the next.',
+    desc: 'Six small bubble targets bounce across a wall, each needing a short burst of tracking.',
     facts: ['Tracking + switching', '6 bubbles bouncing on the wall, 1 s of tracking each', 'Score: damage (100/s on target)'],
     room: { w: 32, h: 22, front: -18 }, pop: [3000, 800],
     build(c) {
@@ -156,14 +156,14 @@ export const SCENARIOS = [
   },
   {
     id: '6-bubbles', name: '6 Bubbles', short: '6 Bubbles', kind: 'click', score: 'killsAcc',
-    desc: 'Six bubbles spread across a wall. Flick between them quickly. Your kills are multiplied by your accuracy, so spraying costs you.',
+    desc: 'Six bubble targets spread across a wall, with kills multiplied by accuracy.',
     facts: ['Click timing', '6 bubbles', 'Score: kills × accuracy'],
     room: { w: 36, h: 24, front: -20 }, pop: [86, 20],
     build: wallTargets({ count: 6, r: 0.65, depth: 0.7, margin: 1.8, minSep: 3.5 }),
   },
   {
     id: '2-bubbles-close', name: '2 Bubbles close', short: '2 Bubbles close', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Flick continuously between two small bubbles. Each new bubble appears a short distance from the one still standing.',
+    desc: 'Two small bubble targets that keep reappearing close to each other.',
     facts: ['Click timing', '2 small bubbles, short flicks', 'Score: kills × √accuracy'],
     room: { w: 32, h: 22, front: -18 }, pop: [99, 23],
     build(c) {
@@ -195,7 +195,7 @@ export const SCENARIOS = [
   },
   {
     id: '3-cubes', name: '3 Cubes', short: '3 Cubes', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Three cubes on a fixed 4 × 3 grid. Each one respawns the instant it dies, in a different slot. Kill as many as you can.',
+    desc: 'Three cube targets on a fixed 4 × 3 grid.',
     facts: ['Click timing', '3 cubes on a 4 × 3 grid', 'Score: kills × √accuracy'],
     room: { w: 21, h: 13, front: -16 }, pop: [112, 25],
     build(c) {
@@ -215,8 +215,8 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'thinbot-strafe', name: 'Thinbot strafe', short: 'Thinbot strafe', kind: 'track', score: 'damage',
-    desc: 'A thin bot glides along a 180° arc around you at a steady pace and turns back at the edges. Keep it centered. Field of view is at least 103°.',
+    id: 'thinbot-strafe', name: 'Thin pill strafe', short: 'Thin pill strafe', kind: 'track', score: 'damage',
+    desc: 'A thin pill target glides along a 180° arc.',
     facts: ['Tracking', 'Thin bot on a 180° arc', 'Min FOV 103°', 'Score: damage (100/s on target)'],
     room: { w: 34, h: 12, front: -18, eye: 1.7 }, pop: [4100, 800], fovMin: 103,
     build(c) {
@@ -236,8 +236,8 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'tracking-bot', name: 'Tracking bot', short: 'Tracking bot', kind: 'track', score: 'damage',
-    desc: 'Fast, be precise. One quick, twitchy bot at a time, above or below you. Track it until it dies and the next one appears somewhere else.',
+    id: 'tracking-bot', name: 'Tracking pill', short: 'Tracking pill', kind: 'track', score: 'damage',
+    desc: 'A quick pill target strafes in front of you until it dies, then reappears elsewhere.',
     facts: ['Tracking + target switching', '1.2 s of tracking per bot', 'Score: damage (100/s on target)'],
     room: { w: 34, h: 16, front: -20, eye: 1.7 }, pop: [2700, 750],
     build(c) {
@@ -260,14 +260,14 @@ export const SCENARIOS = [
   },
   {
     id: '3-bubbles-wide', name: '3 Bubbles wide', short: '3 Bubbles wide', kind: 'click', score: 'kills',
-    desc: 'Three small bubbles anywhere on a wide wall. No accuracy multiplier: raw kills only.',
+    desc: 'Three small bubble targets anywhere on a wide wall.',
     facts: ['Click timing', '3 small bubbles, ±47° wall', 'Score: kills'],
     room: { w: 35, h: 17.7, front: -16 }, pop: [62, 14],
     build: wallTargets({ count: 3, r: 0.38, depth: 0.4, margin: 1.5, minSep: 6 }),
   },
   {
     id: 'fast-strafe-bot', name: 'Fast strafe bot', short: 'Fast strafe bot', kind: 'track', score: 'damage',
-    desc: 'Reactive tracking in a narrow lane. The bot stays on its own short platform and mixes short strafes, sudden stops, quick reversals and hops.',
+    desc: 'A bot target makes fast, short strafes on a round platform.',
     facts: ['Reactive tracking', 'Short strafes, stops, hops', 'Score: damage (100/s on target)'],
     room: { w: 24, h: 7.3, front: -12, platform: true }, pop: [2400, 750],
     build(c) {
@@ -281,7 +281,7 @@ export const SCENARIOS = [
   // ---------------- Scenes 11–31 ----------------
   {
     id: '5-cubes-180', name: '5 Cubes 180', short: '5 Cubes 180', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Five cubes on a grid that wraps 160° around you. Each one respawns instantly in another slot, so you flick wide in both directions.',
+    desc: 'Five cube targets on a grid that wraps 160° around you.',
     facts: ['Click timing', '5 cubes on a ±80° grid', 'Score: kills × √accuracy'],
     room: { w: 40, h: 16, front: -20 }, pop: [104, 24],
     build(c) {
@@ -300,7 +300,7 @@ export const SCENARIOS = [
   },
   {
     id: 'micro-bubbles', name: 'Micro bubbles', short: 'Micro bubbles', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Three very small bubbles close together near the middle of the wall. Each new one appears just beside the last. Pure micro-adjustment.',
+    desc: 'Three very small bubble targets that appear just beside each other.',
     facts: ['Click timing', '3 tiny bubbles, tiny flicks', 'Score: kills × √accuracy'],
     room: { w: 30, h: 20, front: -18 }, pop: [84, 22],
     build(c) {
@@ -323,7 +323,7 @@ export const SCENARIOS = [
   },
   {
     id: 'shrinking-bubbles', name: 'Shrinking bubbles', short: 'Shrinking bubbles', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'One bubble at a time, anywhere on the wall. It shrinks away in 1.3 seconds, so react fast. A missed bubble is simply lost.',
+    desc: 'One bubble target at a time that shrinks away in 1.3 seconds.',
     facts: ['Reaction + click timing', '1 bubble, shrinks in 1.3 s', 'Score: kills × √accuracy'],
     room: { w: 34, h: 22, front: -20 }, pop: [52, 11],
     build(c) {
@@ -343,7 +343,7 @@ export const SCENARIOS = [
   },
   {
     id: 'spider-bubbles', name: 'Spider bubbles', short: 'Spider bubbles', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Alternate between a bubble in the center and one anywhere on the wall. Flick out, flick back, repeat.',
+    desc: 'A bubble target alternates between the center of the wall and anywhere on it.',
     facts: ['Click timing', 'Center, then anywhere, then center', 'Score: kills × √accuracy'],
     room: { w: 36, h: 24, front: -20 }, pop: [98, 22],
     build(c) {
@@ -359,7 +359,7 @@ export const SCENARIOS = [
   },
   {
     id: 'popcorn-bubbles', name: 'Popcorn bubbles', short: 'Popcorn bubbles', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Bubbles pop up from the floor at different distances, arc up and fall back down. Catch them in the air before they land.',
+    desc: 'Bubble targets launch up from the floor and fall back down.',
     facts: ['Moving targets, click timing', '3 bubbles on gravity arcs', 'Score: kills × √accuracy'],
     room: { w: 30, h: 16, front: -20 }, pop: [68, 17],
     build(c) {
@@ -385,7 +385,7 @@ export const SCENARIOS = [
   },
   {
     id: 'bouncing-bubbles', name: 'Bouncing bubbles', short: 'Bouncing bubbles', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Four bubbles slide across the wall in straight lines and bounce off its edges. Lead them and click.',
+    desc: 'Four bubble targets slide across a wall and bounce off its edges.',
     facts: ['Moving targets, click timing', '4 bubbles bouncing on the wall', 'Score: kills × √accuracy'],
     room: { w: 32, h: 22, front: -18 }, pop: [78, 19],
     build(c) {
@@ -401,7 +401,7 @@ export const SCENARIOS = [
   },
   {
     id: 'drifting-bubbles', name: 'Drifting bubbles', short: 'Drifting bubbles', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Three bubbles drift slowly through the space in front of you, some close and some farther back. Click timing on slow movers at changing depths.',
+    desc: 'Three bubble targets drift slowly at different distances.',
     facts: ['Moving targets, click timing', '3 drifting bubbles at varied depth', 'Score: kills × √accuracy'],
     room: { w: 30, h: 18, front: -20 }, pop: [76, 18],
     build(c) {
@@ -417,7 +417,7 @@ export const SCENARIOS = [
   },
   {
     id: 'strafing-cubes', name: 'Strafing cubes', short: 'Strafing cubes', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Three cubes on three rows, each strafing left and right on its own. A killed cube respawns somewhere else on its row.',
+    desc: 'Three cube targets strafe left and right, one per row.',
     facts: ['Moving targets, click timing', '3 strafing cubes, one per row', 'Score: kills × √accuracy'],
     room: { w: 30, h: 16, front: -18 }, pop: [88, 20],
     build(c) {
@@ -436,7 +436,7 @@ export const SCENARIOS = [
   },
   {
     id: 'bubble-frenzy', name: 'Bubble frenzy', short: 'Bubble frenzy', kind: 'track', score: 'damage',
-    desc: 'Three fast bubbles ricochet around the room in all three directions. Each one dies after a short burst of tracking; switch to the next.',
+    desc: 'Three fast bubble targets ricochet around the room, each needing a short burst of tracking.',
     facts: ['Fast tracking + switching', '3 bouncing bubbles, 0.4 s of tracking each', 'Score: damage (100/s on target)'],
     room: { w: 28, h: 16, front: -18 }, pop: [2300, 700],
     build(c) {
@@ -451,8 +451,8 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'close-strafe-bot', name: 'Close strafe bot', short: 'Close strafe bot', kind: 'track', score: 'damage',
-    desc: 'A tough bot right in front of you that strafes, steps toward and away from you, and jumps. Wear down its big health bar; a new one replaces it.',
+    id: 'close-strafe-bot', name: 'Close strafe pill', short: 'Close strafe pill', kind: 'track', score: 'damage',
+    desc: 'A tough pill target strafes, steps in and out, and jumps right in front of you.',
     facts: ['Reactive tracking', 'Very close: strafes, steps in and out, jumps', '3 s of tracking per bot', 'Score: damage (100/s on target)'],
     room: { w: 24, h: 12, front: -14, eye: 1.7 }, pop: [3000, 800],
     build(c) {
@@ -472,7 +472,7 @@ export const SCENARIOS = [
   },
   {
     id: '360-strafe-bubble', name: '360 Strafe bubble', short: '360 Strafe bubble', kind: 'track', score: 'damage',
-    desc: 'A bubble that strafes in long, random directions on a sphere around you: over your head, behind you, under your feet. It changes direction instantly. Turn and look up and down to stay on it.',
+    desc: 'A bubble target strafes in long, random directions all the way around you.',
     facts: ['360° tracking', '1 bubble, long strafes in any direction', 'Score: damage (100/s on target)'],
     room: { w: 24, h: 24, front: -12 }, pop: [2400, 750],
     build(c) {
@@ -505,8 +505,8 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'air-bot', name: 'Air bot', short: 'Air bot', kind: 'track', score: 'damage',
-    desc: 'A bot floating in mid-air that moves sideways, up and down, and toward and away from you at the same time, each on its own rhythm.',
+    id: 'air-bot', name: 'Air pill', short: 'Air pill', kind: 'track', score: 'damage',
+    desc: 'A floating pill target moves sideways, up and down, and toward and away from you.',
     facts: ['Tracking in three directions', 'Floating bot, mixed movement', 'Score: damage (100/s on target)'],
     room: { w: 28, h: 20, front: -18 }, pop: [2600, 750],
     build(c) {
@@ -520,7 +520,7 @@ export const SCENARIOS = [
   },
   {
     id: 'gliding-bubbles', name: 'Gliding bubbles', short: 'Gliding bubbles', kind: 'track', score: 'damage',
-    desc: 'Three bubbles gliding on smooth curves at different depths. Track one until its health runs out, then move smoothly to the next.',
+    desc: 'Three bubble targets glide on smooth curves at different depths.',
     facts: ['Smooth tracking + switching', '3 spheres, 0.75 s of tracking each', 'Score: damage (100/s on target)'],
     room: { w: 26, h: 18, front: -18 }, pop: [2800, 750],
     build(c) {
@@ -539,7 +539,7 @@ export const SCENARIOS = [
   },
   {
     id: 'near-far-bubbles', name: 'Near far bubbles', short: 'Near far bubbles', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Two bubbles: one floating right in front of your face, one far away on a distant wall. The near one can sit right in front of the far one and block it. Each respawns instantly when popped.',
+    desc: 'One bubble target right in front of you and one far away, where the near one can block the far one.',
     facts: ['Click timing at two depths', 'Near bubble 2 units away, far bubble 40', 'Score: kills × √accuracy'],
     room: { w: 64, h: 40, front: -41.5 }, pop: [80, 20],
     build(c) {
@@ -567,8 +567,8 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'hopping-bot-180', name: 'Hopping bot 180', short: 'Hopping bot 180', kind: 'track', score: 'damage',
-    desc: 'A bot hopping and strafing along a 180° arc around you. Its direction changes are quick and it leaves the ground often.',
+    id: 'hopping-bot-180', name: 'Hopping pill 180', short: 'Hopping pill 180', kind: 'track', score: 'damage',
+    desc: 'A pill target hops and strafes along a 180° arc around you.',
     facts: ['Reactive tracking', 'Hops along a 180° arc', 'Score: damage (100/s on target)'],
     room: { w: 30, h: 12, front: -16, eye: 1.7 }, pop: [2700, 750],
     build(c) {
@@ -592,8 +592,8 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'jumping-thin-bot', name: 'Jumping thin bot', short: 'Jumping thin bot', kind: 'track', score: 'damage',
-    desc: 'A thin bot close in front of you that jumps very high, straight up or angled left or right, with a short pause between jumps. Once it leaves the ground its path is set and it can not change direction in the air.',
+    id: 'jumping-thin-bot', name: 'Jumping thin pill', short: 'Jumping thin pill', kind: 'track', score: 'damage',
+    desc: 'A thin pill target makes high jumps that can angle left or right.',
     facts: ['Precise vertical tracking', 'Thin bot, high jumps, close range', 'Score: damage (100/s on target)'],
     room: { w: 24, h: 16, front: -14 }, pop: [2900, 800],
     build(c) {
@@ -626,8 +626,8 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'thinbot-gauntlet', name: 'Thinbot gauntlet', short: 'Thinbot gauntlet', kind: 'track', score: 'damage',
-    desc: 'Thin bots one after another. Track each one until it dies; the next appears somewhere else in front of you.',
+    id: 'thinbot-gauntlet', name: 'Thin pill gauntlet', short: 'Thin pill gauntlet', kind: 'track', score: 'damage',
+    desc: 'Thin pill targets appear one after another, each tracked until it dies.',
     facts: ['Precise tracking + switching', 'Thin bots, 1.5 s of tracking each', 'Score: damage (100/s on target)'],
     room: { w: 30, h: 12, front: -18, eye: 1.7 }, pop: [2700, 750],
     build(c) {
@@ -650,7 +650,7 @@ export const SCENARIOS = [
   },
   {
     id: 'bouncy-tracking-bubbles', name: 'Bouncy tracking bubbles', short: 'Bouncy tracking bubbles', kind: 'track', score: 'damage',
-    desc: 'Five small bubbles bouncing on the floor in front of you, each at its own height and rhythm; a few bounce all the way to the ceiling. Each dies after a short burst of tracking.',
+    desc: 'Five small bubble targets bounce on the floor, each needing a short burst of tracking.',
     facts: ['Tracking bouncing targets', '5 small bubbles, 0.4 s of tracking each', 'Score: damage (100/s on target)'],
     room: { w: 28, h: 12, front: -18, eye: 1.7 }, pop: [2100, 650],
     build(c) {
@@ -680,7 +680,7 @@ export const SCENARIOS = [
   },
   {
     id: 'mini-bubble-track', name: 'Mini bubble track', short: 'Mini bubble track', kind: 'track', score: 'damage',
-    desc: 'A tiny bubble drifting slowly and smoothly at close range. The movement is easy; staying exactly on something this small is not.',
+    desc: 'A tiny bubble target drifts slowly and smoothly at close range.',
     facts: ['Precision tracking', '1 tiny bubble, slow smooth paths', 'Score: damage (100/s on target)'],
     room: { w: 22, h: 14, front: -14 }, pop: [2600, 800],
     build(c) {
@@ -690,8 +690,8 @@ export const SCENARIOS = [
     },
   },
   {
-    id: 'leap-bot', name: 'Leap bot', short: 'Leap bot', kind: 'track', score: 'damage',
-    desc: 'A distant bot that leaps across its long platform in arcs, pausing briefly between jumps. Follow it through the air and catch the landings.',
+    id: 'leap-bot', name: 'Leap pill', short: 'Leap pill', kind: 'track', score: 'damage',
+    desc: 'A distant pill target leaps across its platform in long arcs.',
     facts: ['Reactive tracking', 'Long jumping arcs', 'Score: damage (100/s on target)'],
     room: { w: 36, h: 14, front: -32 }, pop: [2300, 700],
     build(c) {
@@ -714,7 +714,7 @@ export const SCENARIOS = [
   },
   {
     id: 'headshot-bot', name: 'Headshot bot', short: 'Headshot bot', kind: 'click', score: 'killsSqrtAcc',
-    desc: 'Two bots that step a little, stop, then step again. Only the small white head counts; body shots are misses. Each kill brings a new bot 0.5 s later, usually far away.',
+    desc: 'Two bot targets step and stop, and only their small white heads count.',
     facts: ['Click timing on a moving head', '2 bots, stop-and-go steps', 'Mostly far, sometimes close', 'Score: kills × √accuracy'],
     room: { w: 36, h: 12, front: -36 }, pop: [58, 15],
     build(c) {
@@ -753,39 +753,39 @@ export const SCENARIOS = [
     },
   },
 ];
-// Menu tags. Fixed vocabulary: tracking, click-timing, bubble, bot, headshot, 180,
-// long strafe, short strafe, fast strafe, invincible, flick.
+// Menu tags. Fixed vocabulary: tracking, click-timing, bubble, pill, bot, cube, headshot, 180,
+// long strafe, short strafe, fast strafe, invincible, flick. A pill is a headless capsule; a bot has a head.
 export const TAGS = {
-  'sandbox': ['tracking', 'click-timing', 'bot', 'bubble'],
+  'sandbox': ['tracking', 'click-timing', 'pill', 'bubble'],
   '6-bubbles-mini': ['click-timing', 'bubble', 'flick'],
   'tracking-bubbles': ['tracking', 'bubble'],
   '6-bubbles': ['click-timing', 'bubble', 'flick'],
   '2-bubbles-close': ['click-timing', 'bubble', 'flick'],
-  '3-cubes': ['click-timing', 'flick'],
-  'thinbot-strafe': ['tracking', 'bot', '180', 'long strafe', 'invincible'],
-  'tracking-bot': ['tracking', 'bot', 'short strafe'],
+  '3-cubes': ['click-timing', 'cube', 'flick'],
+  'thinbot-strafe': ['tracking', 'pill', '180', 'long strafe', 'invincible'],
+  'tracking-bot': ['tracking', 'pill', 'short strafe'],
   '3-bubbles-wide': ['click-timing', 'bubble', 'flick'],
   'fast-strafe-bot': ['tracking', 'bot', 'short strafe', 'fast strafe', 'invincible'],
-  '5-cubes-180': ['click-timing', '180', 'flick'],
+  '5-cubes-180': ['click-timing', 'cube', '180', 'flick'],
   'micro-bubbles': ['click-timing', 'bubble'],
   'shrinking-bubbles': ['click-timing', 'bubble', 'flick'],
   'spider-bubbles': ['click-timing', 'bubble', 'flick'],
   'popcorn-bubbles': ['click-timing', 'bubble'],
   'bouncing-bubbles': ['click-timing', 'bubble'],
   'drifting-bubbles': ['click-timing', 'bubble'],
-  'strafing-cubes': ['click-timing', 'short strafe'],
+  'strafing-cubes': ['click-timing', 'cube', 'short strafe'],
   'bubble-frenzy': ['tracking', 'bubble'],
-  'close-strafe-bot': ['tracking', 'bot', 'short strafe', 'fast strafe'],
+  'close-strafe-bot': ['tracking', 'pill', 'short strafe', 'fast strafe'],
   '360-strafe-bubble': ['tracking', 'bubble', 'long strafe', 'invincible'],
-  'air-bot': ['tracking', 'bot', 'invincible'],
+  'air-bot': ['tracking', 'pill', 'invincible'],
   'gliding-bubbles': ['tracking', 'bubble'],
   'near-far-bubbles': ['click-timing', 'bubble', 'flick'],
-  'hopping-bot-180': ['tracking', 'bot', '180', 'short strafe', 'invincible'],
-  'jumping-thin-bot': ['tracking', 'bot', 'short strafe', 'invincible'],
-  'thinbot-gauntlet': ['tracking', 'bot'],
+  'hopping-bot-180': ['tracking', 'pill', '180', 'short strafe', 'invincible'],
+  'jumping-thin-bot': ['tracking', 'pill', 'invincible'],
+  'thinbot-gauntlet': ['tracking', 'pill'],
   'bouncy-tracking-bubbles': ['tracking', 'bubble'],
   'mini-bubble-track': ['tracking', 'bubble', 'invincible'],
-  'leap-bot': ['tracking', 'bot', 'invincible'],
+  'leap-bot': ['tracking', 'pill', 'invincible'],
   'headshot-bot': ['click-timing', 'bot', 'headshot'],
 };
 export const SCORE_TEXT = {

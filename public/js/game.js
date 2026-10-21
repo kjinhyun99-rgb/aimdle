@@ -1,6 +1,6 @@
 // aimdle.io game client. THREE is the global from the three.js script tag in index.html.
 import { clamp, lerp, mulberry32, hashStr, gauss, fmtInt, pad2 } from './shared/util.js';
-import { DAY_MS, utcDay, dayKey, dailyInfo } from './shared/daily.js';
+import { DAY_MS, gameDay, nextReset, dayKey, dailyInfo } from './shared/daily.js';
 import { DPS, SCORE, SCENARIOS, sceneTag, fmtScore, SCORE_TEXT } from './shared/scenes.js';
 import { validateRun } from './shared/validate.js';
 
@@ -20,7 +20,7 @@ const GAMES = {
   ow2: { label: 'Overwatch 2', yaw: 0.0066, fov: 103, sensLabel: 'Overwatch 2 sensitivity' },
   custom: { label: 'Custom', yaw: null, fov: null, sensLabel: '' },
 };
-const HUD_ITEMS = [['timer', 'Timer'], ['session', 'Session stats (score, kills, accuracy, KPS, TTK, tracking meter)'], ['fps', 'FPS counter']];
+const HUD_ITEMS = [['timer', 'Timer'], ['session', 'Session stats (score, kills, accuracy, KPS, TTK)'], ['meter', 'Tracking meter (tracking scenes)'], ['fps', 'FPS counter']];
 const DEFAULTS = {
   game: 'valorant', sens: 0.4, cm360: 35, dpi: 800, fov: 103, fovFromGame: true,
   xhStyle: 'cross', xhColor: '#ffff00', xhSize: 5, xhThick: 2, xhGap: 3, xhOutline: true,
@@ -496,7 +496,7 @@ function frame(now) {
 // ---------- HUD ----------
 function setHudVisibility() {
   document.querySelectorAll('#hud [data-hud]').forEach((el) => { el.hidden = !S.hud[el.dataset.hud]; });
-  const showMeter = S.hud.session && G.scn && G.scn.kind !== 'click';
+  const showMeter = S.hud.meter && G.scn && G.scn.kind !== 'click';
   $('#hud-meter').hidden = !showMeter;
 }
 function updateHudStatic() {
@@ -535,7 +535,12 @@ function updateHud() {
   if (G.state === 'countdown' && G.resumeTo === 'challenge') { cm.hidden = false; cm.innerHTML = `${Math.max(1, Math.ceil(G.countdown))}<small>RANKED RUN</small>`; }
   else cm.hidden = true;
 }
-function updateMeter() { $('#hud-needle').style.left = (G.meter * 100).toFixed(1) + '%'; }
+let meterShown = -1;
+function updateMeter() {
+  const pct = Math.round(G.meter * 100);
+  $('#hud-meter-fill').style.width = (G.meter * 100).toFixed(1) + '%';
+  if (pct !== meterShown) { meterShown = pct; $('#hud-meter-val').textContent = pct + '%'; }
+}
 let hitTimer = 0;
 function hitmark() { if (!S.hitmarker) return; const el = $('#hitmark'); el.classList.add('on'); clearTimeout(hitTimer); hitTimer = setTimeout(() => el.classList.remove('on'), 60); }
 
@@ -811,13 +816,13 @@ function selectTab(name) {
 document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => selectTab(b.dataset.tab)));
 
 function openMenu() {
-  // pick up a UTC rollover that happened while the page was open
+  // pick up a midnight (Pacific) rollover that happened while the page was open
   const now = dailyInfo();
   if (now.day !== G.daily.day && G.state !== 'paused') { G.daily = now; loadScenario(now.idx, 'free'); }
   $('#scrim').hidden = false; $('#results').hidden = true; $('#menu').hidden = false;
   const d = G.daily, scn = SCENARIOS[d.idx];
   const date = new Date(d.day * DAY_MS).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-  $('#m-day').textContent = `${date} · UTC`;
+  $('#m-day').textContent = date;
   const showing = G.state === 'paused' ? G.scn : scn;
   const isDaily = showing === scn;
   $('#m-scn-eyebrow').textContent = `${isDaily ? "Today's challenge" : 'Free play'} · Scene #${SCENARIOS.indexOf(showing) + 1}`;
@@ -858,7 +863,7 @@ $('#b-other').innerHTML = SCENARIOS.map((s, i) => `<option value="${i}">${escape
 $('#b-other-go').addEventListener('click', () => { loadScenario(Number($('#b-other').value), 'free'); startCountdown('free'); });
 
 function tickNext() {
-  const ms = (utcDay() + 1) * DAY_MS - Date.now();
+  const ms = nextReset() - Date.now();
   const t = Math.max(0, Math.floor(ms / 1000));
   $('#m-next').textContent = `${pad2(Math.floor(t / 3600))}:${pad2(Math.floor((t % 3600) / 60))}:${pad2(t % 60)}`;
 }

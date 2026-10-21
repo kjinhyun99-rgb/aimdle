@@ -1,19 +1,19 @@
 // aimdle.io Worker: serves the static game (public/) and the daily leaderboard API.
 //
-//   GET  /api/today              today's scene, from the server's UTC clock
+//   GET  /api/today              today's scene, from the server's clock (day turns over at midnight Pacific)
 //   GET  /api/scores?day=YYYY-MM-DD   that day's ranked scores (for the bell curve)
 //   POST /api/runs               submit a ranked run { playerId, run }
 //
 // Every submitted run is re-validated here with the same code the game uses, so a modified
 // client can't post an impossible score. Each anonymous player gets one ranked run per day.
-import { DAY_MS, utcDay, dailyInfo } from '../public/js/shared/daily.js';
+import { gameDay, nextReset, dailyInfo } from '../public/js/shared/daily.js';
 import { SCENARIOS } from '../public/js/shared/scenes.js';
 import { validateRun } from '../public/js/shared/validate.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_RUNS_PER_NETWORK_PER_DAY = 25; // blunts scripted floods of fake player IDs
 const MAX_SCORES_RETURNED = 5000;       // larger fields are sampled for the curve
-const LATE_GRACE_MS = 3 * 60 * 1000;    // a run that finishes just after midnight UTC still counts for the day it was played
+const LATE_GRACE_MS = 3 * 60 * 1000;    // a run that finishes just after midnight Pacific still counts for the day it was played
 
 const json = (data, status = 200, extra = {}) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', ...extra } });
@@ -27,8 +27,8 @@ async function sha256Hex(text) {
 }
 
 function today() {
-  const d = dailyInfo(utcDay());
-  return { day: d.key, sceneIndex: d.idx, sceneNumber: d.scene, sceneId: SCENARIOS[d.idx].id, sceneName: SCENARIOS[d.idx].name, nextResetMs: (d.day + 1) * DAY_MS };
+  const d = dailyInfo(gameDay());
+  return { day: d.key, sceneIndex: d.idx, sceneNumber: d.scene, sceneId: SCENARIOS[d.idx].id, sceneName: SCENARIOS[d.idx].name, nextResetMs: nextReset() };
 }
 
 async function getScores(env, url, ctx) {
@@ -43,7 +43,7 @@ async function getScores(env, url, ctx) {
 }
 
 async function buildScores(env, url) {
-  const day = url.searchParams.get('day') || dailyInfo(utcDay()).key;
+  const day = url.searchParams.get('day') || dailyInfo(gameDay()).key;
   if (!DAY_RE.test(day)) return json({ error: 'Use ?day=YYYY-MM-DD.' }, 400);
   const { results } = await env.DB.prepare('SELECT score FROM runs WHERE day = ?1').bind(day).all();
   let scores = results.map((r) => r.score);
@@ -66,8 +66,8 @@ async function postRun(env, request) {
   if (typeof playerId !== 'string' || !PLAYER_RE.test(playerId)) return json({ ok: false, reason: 'Missing player ID.' }, 400);
   if (!run || typeof run.dayKey !== 'string' || !DAY_RE.test(run.dayKey)) return json({ ok: false, reason: 'Missing run day.' }, 400);
 
-  // The run must belong to today (UTC), or to yesterday if it finished in the first minutes after midnight.
-  const now = Date.now(), dNow = utcDay(now), dLate = utcDay(now - LATE_GRACE_MS);
+  // The run must belong to today (Pacific), or to yesterday if it finished in the first minutes after midnight.
+  const now = Date.now(), dNow = gameDay(now), dLate = gameDay(now - LATE_GRACE_MS);
   const allowed = [dNow, dLate].map((d) => dailyInfo(d));
   const info = allowed.find((d) => d.key === run.dayKey);
   if (!info) return json({ ok: false, reason: "This run belongs to a different day's challenge." }, 400);

@@ -1,6 +1,6 @@
 # aimdle.io
 
-A daily aim-training challenge in the browser. Every day (UTC) everyone gets the same scene:
+A daily aim-training challenge in the browser. Every day (the day turns over at midnight Pacific time) everyone gets the same scene:
 warm up in free play, then play one 60-second ranked run and see where you land on the day's
 bell curve. 31 scenes rotate monthly, with no repeats within a month.
 
@@ -16,7 +16,7 @@ public/                 static files served as-is
   js/shared/            code used by BOTH the game and the Worker
     util.js             small helpers (random numbers, formatting)
     scenes.js           the 31 scenes, scoring rules, tags
-    daily.js            the monthly rotation (which scene is on which UTC day)
+    daily.js            the monthly rotation (which scene is on which day, midnight Pacific)
     validate.js         run validation (anti-cheat), run in the browser and on the server
 worker/index.js         leaderboard API (/api/today, /api/scores, /api/runs)
 migrations/             D1 database schema
@@ -70,7 +70,7 @@ but without the API: the game runs offline with a simulated field of other playe
 
 ## How the leaderboard works
 
-- **Today's scene** comes from the server's UTC clock (`/api/today`), so a wrong computer clock
+- **Today's scene** comes from the server's clock (`/api/today`), so a wrong computer clock
   can't change it.
 - **Ranked runs** are posted to `/api/runs`. The Worker re-runs `validate.js` on every run, so a
   modified client can't post an impossible score. Each player gets one ranked run per day.
