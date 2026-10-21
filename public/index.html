@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>aimdle.io</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&display=swap">
+<style>
+/* Layout: full-bleed 3D canvas, slate HUD panels pinned to corners, one centered sheet for menu/results. Single dark look by design. */
+:root {
+  --void: #0b1118;
+  --sheet: rgba(13, 20, 29, 0.94);
+  --panel: rgba(17, 26, 37, 0.80);
+  --panel-solid: #142030;
+  --line: rgba(150, 182, 214, 0.16);
+  --line-strong: rgba(150, 182, 214, 0.32);
+  --fg: #e8edf3;
+  --muted: #8797ab;
+  --accent: #79cfff;
+  --you: #ff5f8f;
+  --target: #ff3434;
+  --good: #7ee2a8;
+  --warn: #ffd166;
+  --display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+  --body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; background: var(--void); color: var(--fg); overflow: hidden; }
+body { font-family: var(--body); font-size: 15px; }
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- HUD ---------- */
+#hud { position: fixed; inset: 0; pointer-events: none; font-family: var(--display); }
+.hp { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; backdrop-filter: blur(4px); }
+#hud-session { position: absolute; top: 20px; left: 20px; padding: 10px 16px 12px; min-width: 230px; }
+#hud-session .ph { display: flex; justify-content: space-between; gap: 16px; font-weight: 600; letter-spacing: 0.06em; font-size: 15px; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 6px; }
+#hud-session .ph span:last-child { font-family: var(--mono); font-weight: 600; }
+#hud-session dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; font-size: 14px; }
+#hud-session dt { color: var(--muted); font-weight: 500; }
+#hud-session dd { margin: 0; text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+#hud-session .row { display: contents; }
+#hud-top { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 8px; }
+#hud-timer { font-size: 46px; font-weight: 700; line-height: 1; text-shadow: 0 2px 10px rgba(0,0,0,.45); font-variant-numeric: tabular-nums; }
+#hud-timer.free { font-size: 20px; letter-spacing: 0.18em; color: var(--accent); }
+#hud-meter { display: flex; align-items: center; gap: 8px; }
+#hud-meter .lbl { font-size: 10px; line-height: 1; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: -1px; color: var(--muted); }
+#hud-meter .bar { position: relative; width: 240px; height: 26px; border-radius: 14px; overflow: hidden; border: 2px solid rgba(255,255,255,.85); background: linear-gradient(90deg, #e3262b 0 30%, #e8d900 30% 62%, #1f9a3a 62% 100%); }
+#hud-meter .needle { position: absolute; top: 2px; bottom: 2px; width: 5px; margin-left: -2px; background: #fff; border-radius: 3px; box-shadow: 0 0 0 1.5px #111; left: 0%; }
+#hud-fps { position: absolute; top: 22px; right: 24px; font-family: var(--mono); font-size: 18px; text-shadow: 0 1px 6px rgba(0,0,0,.6); font-variant-numeric: tabular-nums; }
+#hud-fps small { font-size: 12px; color: var(--muted); }
+#hud-scn { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,.5); white-space: nowrap; }
+#hud-scn small { display: block; text-align: center; font-size: 12px; letter-spacing: 0.2em; color: var(--accent); font-weight: 600; }
+#center-msg { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); font-size: 96px; font-weight: 700; text-shadow: 0 4px 20px rgba(0,0,0,.5); }
+#center-msg small { display: block; text-align: center; font-size: 15px; letter-spacing: 0.3em; color: var(--accent); }
+#crosshair { position: fixed; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; pointer-events: none; }
+#crosshair svg { display: block; }
+#hitmark { position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; pointer-events: none; opacity: 0; transition: opacity 120ms; }
+#hitmark.on { opacity: 1; transition: none; }
+
+/* ---------- Sheets (menu + results) ---------- */
+#scrim { position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 40%, rgba(11,17,24,.55), rgba(11,17,24,.88)); display: grid; place-items: center; padding-block: 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); overflow-y: auto; }
+.sheet { width: min(860px, 100%); background: var(--sheet); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+.brand { display: inline-flex; align-items: baseline; font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: -0.01em; color: var(--fg); line-height: 1; }
+.brand .bub { display: inline-block; width: 0.34em; height: 0.34em; margin: 0 0.07em; border-radius: 50%; background: radial-gradient(circle at 35% 32%, #ff8a8a 0 18%, #ff2a2a 42%, #b81414 100%); transform: translateY(-0.02em); }
+.brand .tld { color: var(--muted); font-weight: 600; }
+.eyebrow { font-family: var(--display); font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.menu-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 22px 28px 16px; border-bottom: 1px solid var(--line); }
+.head-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.btn.mute { padding: 6px 12px 6px 8px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+.btn.mute[aria-pressed="true"] { border-color: rgba(255,77,77,.5); }
+.spk { width: 22px; height: 22px; flex: none; }
+#hud-muted { position: absolute; bottom: 20px; right: 22px; padding: 6px; line-height: 0; }
+#hud-muted .spk { width: 26px; height: 26px; color: var(--fg); }
+.menu-head .next { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.menu-head .next b { color: var(--accent); font-weight: 600; }
+.tabs { display: flex; gap: 4px; padding: 10px 20px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tabs button { background: none; border: 0; padding: 10px 14px 12px; font-family: var(--display); font-weight: 600; letter-spacing: 0.06em; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tabs button:hover { color: var(--fg); }
+.tabpanel { padding: 24px 28px 28px; display: grid; gap: 18px; }
+.scn-card h1 { font-family: var(--display); font-weight: 700; font-size: 40px; line-height: 1.05; margin: 6px 0 8px; text-wrap: balance; }
+.scn-card p { margin: 0; color: #c3ccd7; max-width: 62ch; line-height: 1.5; }
+.facts { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.facts li { font-size: 13px; padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 999px; color: #c9d3de; }
+.facts li b { color: var(--fg); font-weight: 600; }
+.score-rule { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.status { font-size: 14px; color: #c3ccd7; padding: 12px 14px; border-left: 3px solid var(--accent); background: rgba(121,207,255,.06); border-radius: 0 8px 8px 0; }
+.status b { color: var(--fg); }
+.status.warn { border-left-color: var(--warn); background: rgba(255,209,102,.06); }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn { appearance: none; border: 1px solid var(--line-strong); background: transparent; padding: 12px 20px; border-radius: 10px; font-family: var(--display); font-weight: 600; font-size: 15px; letter-spacing: 0.05em; cursor: pointer; transition: background 120ms, border-color 120ms; }
+.btn:hover { background: rgba(150,182,214,.08); border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: #071521; border-color: var(--accent); }
+.btn.primary:hover { background: #9adcff; }
+.btn.danger { color: #ff9aa9; border-color: rgba(255,95,143,.4); }
+.keys { margin: 0; font-size: 13px; color: var(--muted); }
+kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--fg); }
+details.other summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+details.other[open] summary { margin-bottom: 10px; }
+.other-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 22px; }
+.field { display: grid; gap: 6px; align-content: start; }
+.field.wide { grid-column: 1 / -1; }
+.field > span { font-size: 13px; color: var(--muted); font-weight: 500; letter-spacing: 0.02em; }
+.field input[type="number"], .field input[type="text"], .field select { background: var(--panel-solid); border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px 11px; font-family: var(--mono); font-size: 14px; width: 100%; }
+.field select { font-family: var(--body); font-size: 15px; }
+.field input[type="range"] { width: 100%; accent-color: var(--accent); }
+.field input[type="color"] { width: 56px; height: 36px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--panel-solid); padding: 2px; }
+.rng { display: flex; align-items: center; gap: 12px; }
+.rng output { font-family: var(--mono); font-size: 14px; min-width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+.check { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.readout { grid-column: 1 / -1; display: flex; gap: 24px; flex-wrap: wrap; padding: 14px 16px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 10px; }
+.readout div { display: grid; gap: 2px; }
+.readout b { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+.readout span { font-size: 12px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.note { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; max-width: 72ch; }
+.note b { color: var(--fg); font-weight: 600; }
+.xh-preview { width: 120px; height: 120px; border-radius: 10px; border: 1px solid var(--line); background: #c9ced4; display: grid; place-items: center; }
+.hud-grid { display: grid; gap: 12px; }
+
+/* ---------- Results ---------- */
+.results { padding: 26px 32px 30px; }
+.res-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.res-head .eyebrow { color: #a9b6c6; }
+.res-scn { margin-top: 22px; font-family: var(--display); font-size: 15px; letter-spacing: 0.08em; color: var(--muted); }
+.res-score { display: flex; align-items: baseline; gap: 14px; margin-top: 2px; }
+#res-score { font-family: var(--display); font-weight: 700; font-size: 104px; line-height: 0.95; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+#res-unit { font-family: var(--mono); font-size: 15px; color: var(--accent); }
+.curve-wrap { margin-top: 12px; overflow-x: auto; }
+#res-curve { width: 100%; height: auto; display: block; min-width: 520px; }
+.res-pct { margin: 6px 0 0; font-family: var(--display); font-weight: 600; font-size: 18px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); }
+.res-field { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+.res-stats { margin: 20px 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.res-stats div { background: var(--sheet); padding: 12px 14px; }
+.res-stats dt { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-family: var(--display); font-weight: 600; }
+.res-stats dd { margin: 4px 0 0; font-family: var(--mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+#res-msg { margin: 12px 0 0; font-size: 14px; min-height: 1.4em; }
+#res-msg.ok { color: var(--good); }
+#res-msg.bad { color: #ff9aa9; }
+#res-msg.info { color: #c3ccd7; }
+.res-actions { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+#desktop-only { position: fixed; inset: 0; display: none; place-items: center; text-align: center; padding-block: 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); background: var(--void); z-index: 50; }
+#desktop-only p { max-width: 34ch; color: #c3ccd7; line-height: 1.5; }
+@media (pointer: coarse), (max-width: 720px) {
+  #desktop-only { display: grid; }
+}
+@media (max-width: 900px) {
+  .form, .hud-grid { grid-template-columns: minmax(0, 1fr); }
+  .res-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<canvas id="view" tabindex="-1" aria-label="Aim trainer view"></canvas>
+
+<div id="hud" aria-hidden="true">
+  <div id="hud-session" class="hp" data-hud="session">
+    <div class="ph"><span id="hud-mode">FREE PLAY</span><span id="hud-elapsed">+00:00</span></div>
+    <dl>
+      <div class="row"><dt>Score</dt><dd id="hud-score">0</dd></div>
+      <div class="row"><dt>Kills</dt><dd id="hud-kills">0</dd></div>
+      <div class="row"><dt>Accuracy</dt><dd id="hud-acc">–</dd></div>
+      <div class="row"><dt>KPS</dt><dd id="hud-kps">0.00</dd></div>
+      <div class="row"><dt>Avg TTK</dt><dd id="hud-ttk">–</dd></div>
+    </dl>
+  </div>
+  <div id="hud-top">
+    <div id="hud-timer" data-hud="timer">1:00</div>
+    <div id="hud-meter"><span class="lbl">DPS</span><div class="bar"><div class="needle" id="hud-needle"></div></div></div>
+  </div>
+  <div id="hud-muted" class="hp" hidden><svg class="spk" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h3.5L11 5v14l-4.5-4H3z" fill="currentColor"/><circle cx="17.5" cy="12" r="5.2" fill="none" stroke="#ff4d4d" stroke-width="2"/><path d="M13.9 15.6l7.2-7.2" stroke="#ff4d4d" stroke-width="2" stroke-linecap="round"/></svg></div>
+  <div id="hud-fps" data-hud="fps">0 <small>FPS</small></div>
+  <div id="hud-scn"><small id="hud-scn-tag">DAILY #1</small><span id="hud-scn-name">Scenario</span></div>
+  <div id="center-msg" hidden></div>
+</div>
+<div id="crosshair"></div>
+<svg id="hitmark" viewBox="0 0 22 22"><path d="M3 3l5 5M19 3l-5 5M3 19l5-5M19 19l-5-5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+
+<div id="scrim">
+  <!-- MENU -->
+  <div id="menu" class="sheet" role="dialog" aria-labelledby="m-scn">
+    <header class="menu-head">
+      <div><div class="brand" aria-label="aimdle.io">aimdle<span class="bub" aria-hidden="true"></span><span class="tld">io</span></div><div class="eyebrow" id="m-day"></div></div>
+      <div class="head-right">
+        <div class="next">Next challenge in <b id="m-next">--:--:--</b> · resets 00:00 UTC</div>
+        <button class="btn mute" id="m-mute" aria-pressed="false" aria-label="Mute sound" title="Mute sound (M)"></button>
+      </div>
+    </header>
+    <nav class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="play" id="tab-play">Play</button>
+      <button role="tab" aria-selected="false" data-tab="aim" id="tab-aim">Sensitivity &amp; FOV</button>
+      <button role="tab" aria-selected="false" data-tab="look" id="tab-look">Crosshair &amp; sound</button>
+      <button role="tab" aria-selected="false" data-tab="hud" id="tab-hud">HUD</button>
+    </nav>
+
+    <section class="tabpanel" data-panel="play">
+      <div class="scn-card">
+        <div class="eyebrow" id="m-scn-eyebrow">Today's challenge</div>
+        <h1 id="m-scn">Scenario</h1>
+        <p id="m-desc"></p>
+        <ul class="facts" id="m-facts"></ul>
+        <p class="score-rule" id="m-score"></p>
+      </div>
+      <div class="status" id="m-status"></div>
+      <div class="actions">
+        <button class="btn primary" id="b-primary">Start free play</button>
+        <button class="btn" id="b-secondary">Start challenge</button>
+      </div>
+      <details class="other">
+        <summary>Free play another scene (prototype testing)</summary>
+        <div class="other-row">
+          <div class="field"><select id="b-other" aria-label="Scenario"></select></div>
+          <button class="btn" id="b-other-go">Play it</button>
+        </div>
+      </details>
+      <p class="keys">Works best in Chrome or Firefox.</p>
+      <p class="keys"><kbd>Esc</kbd> pause · <kbd>R</kbd> reset free-play stats · <kbd>B</kbd> box room · <kbd>M</kbd> mute · hold the mouse button on tracking scenarios</p>
+    </section>
+
+    <section class="tabpanel" data-panel="aim" hidden>
+      <div class="form">
+        <label class="field"><span>Match sensitivity from</span>
+          <select id="set-game">
+            <option value="valorant">Valorant</option>
+            <option value="cs2">Counter-Strike 2</option>
+            <option value="apex">Apex Legends</option>
+            <option value="ow2">Overwatch 2</option>
+            <option value="custom">Custom (cm/360)</option>
+          </select>
+        </label>
+        <label class="field" id="row-sens"><span id="lbl-sens">In-game sensitivity</span><input type="number" id="set-sens" step="0.001" min="0.001"></label>
+        <label class="field" id="row-cm" hidden><span>cm per 360°</span><input type="number" id="set-cm" step="0.1" min="1"></label>
+        <label class="field"><span>Mouse DPI</span><input type="number" id="set-dpi" step="50" min="100"></label>
+        <div class="readout">
+          <div><b id="out-cm">0</b><span>cm / 360°</span></div>
+          <div><b id="out-deg">0</b><span>degrees per count</span></div>
+          <div><b id="out-fov">0°</b><span>Horizontal FOV</span></div>
+          <div><b id="out-raw">–</b><span>Raw input</span></div>
+          <div><b id="out-hz">–</b><span>Mouse events / s</span></div>
+          <div><b id="out-step">–</b><span>Smallest move step</span></div>
+        </div>
+        <label class="field wide"><span>Field of view (horizontal, measured at 16:9)</span>
+          <span class="rng"><input type="range" id="set-fov" min="60" max="130" step="0.01"><output id="set-fov-out"></output></span>
+        </label>
+        <label class="check field wide"><input type="checkbox" id="set-fovgame"> Use the selected game's default FOV</label>
+        <label class="field"><span>Raw mouse input</span>
+          <select id="set-raw">
+            <option value="auto">Auto (on for Windows, off for Mac)</option>
+            <option value="on">On</option>
+            <option value="off">Off</option>
+          </select>
+        </label>
+        <label class="field"><span>Mouse input source</span>
+          <select id="set-input">
+            <option value="mouse">Mouse events (default)</option>
+            <option value="pointer">Pointer events (try this in Safari)</option>
+          </select>
+        </label>
+        <label class="field"><span>Mouse smoothing</span>
+          <select id="set-smooth">
+            <option value="0">Off (no added delay)</option>
+            <option value="0.006">Light (~6 ms)</option>
+            <option value="0.012">Medium (~12 ms)</option>
+            <option value="0.024">Heavy (~24 ms)</option>
+          </select>
+        </label>
+        <label class="field"><span>Render resolution</span>
+          <select id="set-scale">
+            <option value="1">100% (sharpest)</option>
+            <option value="0.75">75%</option>
+            <option value="0.5">50% (fastest)</option>
+          </select>
+        </label>
+        <p class="note">Sensitivity matches 1:1 only with <b>raw input</b>, which Chrome and Edge give to pointer-locked pages. Other browsers apply your OS pointer speed; set Windows pointer speed to 6/11 and turn off Enhance pointer precision. The mouse readouts update after a few seconds of play. On macOS, browsers receive cursor points rather than raw counts: if you need a very high sensitivity here, raise macOS tracking speed and your mouse DPI, then lower this sensitivity. That gives finer steps. Mouse smoothing hides any remaining steps at the cost of a few milliseconds of delay. Centering I 180 forces at least 103°.</p>
+      </div>
+    </section>
+
+    <section class="tabpanel" data-panel="look" hidden>
+      <div class="form">
+        <label class="check field wide"><input type="checkbox" id="set-boxroom"> Box room instead of a single wall <span class="keys">(or press <kbd>B</kbd> anytime)</span></label>
+        <label class="field"><span>Crosshair style</span>
+          <select id="set-xh-style">
+            <option value="cross">Cross</option>
+            <option value="crossdot">Cross + dot</option>
+            <option value="dot">Dot</option>
+            <option value="circle">Circle</option>
+          </select>
+        </label>
+        <div class="field"><span>Preview</span><div class="xh-preview" id="xh-preview"></div></div>
+        <label class="field"><span>Crosshair color</span><input type="color" id="set-xh-color"></label>
+        <label class="field"><span>Target color</span><input type="color" id="set-target-color"></label>
+        <label class="field"><span>Length</span><span class="rng"><input type="range" id="set-xh-size" min="1" max="16" step="1"><output id="o-xh-size"></output></span></label>
+        <label class="field"><span>Thickness</span><span class="rng"><input type="range" id="set-xh-thick" min="1" max="6" step="1"><output id="o-xh-thick"></output></span></label>
+        <label class="field"><span>Gap</span><span class="rng"><input type="range" id="set-xh-gap" min="0" max="12" step="1"><output id="o-xh-gap"></output></span></label>
+        <label class="check field"><input type="checkbox" id="set-xh-outline"> Black outline</label>
+        <label class="check field wide"><input type="checkbox" id="set-muted"> Mute all game sound <span class="keys">(or press <kbd>M</kbd> anytime)</span></label>
+        <label class="field"><span>Hit sound (clicks and kills)</span><select id="set-hitsound"></select></label>
+        <label class="field"><span>Tracking hit sound (while on target)</span><select id="set-tracksound"></select></label>
+        <label class="field"><span>Master volume</span><span class="rng"><input type="range" id="set-volume" min="0" max="1" step="0.05"><output id="o-volume"></output></span></label>
+        <label class="check field"><input type="checkbox" id="set-hitmarker"> Show hit marker on kills</label>
+      </div>
+    </section>
+
+    <section class="tabpanel" data-panel="hud" hidden>
+      <div class="hud-grid" id="hud-toggles"></div>
+      <p class="note">These only change what's on screen. Every stat is still recorded and shown on the results screen.</p>
+    </section>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results" class="sheet results" role="dialog" aria-labelledby="res-score" hidden>
+    <div class="res-head"><span class="brand" aria-label="aimdle.io">aimdle<span class="bub" aria-hidden="true"></span><span class="tld">io</span></span><span class="eyebrow" id="res-day"></span></div>
+    <div class="res-scn" id="res-scn">Scenario</div>
+    <div class="res-score"><span id="res-score">0</span><span id="res-unit">points</span></div>
+    <div class="curve-wrap"><svg id="res-curve" viewBox="0 0 720 210" role="img" aria-label="Distribution of today's scores"></svg></div>
+    <p class="res-pct" id="res-pct"></p>
+    <p class="res-field" id="res-field"></p>
+    <dl class="res-stats" id="res-stats"></dl>
+    <p id="res-msg" role="status"></p>
+    <div class="res-actions">
+      <button class="btn primary" id="res-free">Continue free play</button>
+      <button class="btn" id="res-copy">Copy result</button>
+      <button class="btn" id="res-menu">Menu</button>
+    </div>
+  </div>
+</div>
+
+<div id="desktop-only"><div><div class="brand" aria-label="aimdle.io">aimdle<span class="bub" aria-hidden="true"></span><span class="tld">io</span></div><p>aimdle.io needs a desktop browser with a mouse. Open this page on a computer to play today's challenge.</p></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module" src="/js/game.js"></script>
+</body>
+</html>

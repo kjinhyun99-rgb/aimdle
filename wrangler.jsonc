@@ -1,0 +1,31 @@
+{
+  // aimdle.io: one Worker serves the game (public/) and the leaderboard API (worker/index.js).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "aimdle",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-09-01",
+
+  // Static files. Requests that don't match a file (like /api/...) go to the Worker.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // Leaderboard database. Replace database_id with the ID printed by:
+  //   npx wrangler d1 create aimdle
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "aimdle",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Serve the site on aimdle.io (the domain must be on this Cloudflare account).
+  "routes": [
+    { "pattern": "aimdle.io", "custom_domain": true }
+  ],
+
+  "observability": { "enabled": true }
+}
