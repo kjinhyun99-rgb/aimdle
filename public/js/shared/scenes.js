@@ -593,20 +593,34 @@ export const SCENARIOS = [
   },
   {
     id: 'jumping-thin-bot', name: 'Jumping thin bot', short: 'Jumping thin bot', kind: 'track', score: 'damage',
-    desc: 'A thin bot close in front of you that jumps very high, straight up and down, with a short pause between jumps. Follow it all the way up and back down.',
-    facts: ['Precise vertical tracking', 'Thin bot, high vertical jumps, close range', 'Score: damage (100/s on target)'],
+    desc: 'A thin bot close in front of you that jumps very high, straight up or angled left or right, with a short pause between jumps. Once it leaves the ground its path is set and it can not change direction in the air.',
+    facts: ['Precise vertical tracking', 'Thin bot, high jumps, close range', 'Score: damage (100/s on target)'],
     room: { w: 24, h: 16, front: -14 }, pop: [2900, 800],
     build(c) {
       const z = -7, foot = c.eye - 3; // stands on a small platform below eye level; jumps rise well above it
-      c.addProp({ x0: -1.6, x1: 1.6, y0: foot - 0.3, y1: foot, z0: z - 1.2, z1: z + 1.2 });
+      c.addProp({ x0: -5.5, x1: 5.5, y0: foot - 0.3, y1: foot, z0: z - 1.2, z1: z + 1.2 });
       const bot = c.addBot({ r: 0.15, h: 2.2, x: 0, y: foot, z, hp: Infinity, ground: foot });
-      let y = 0, vy = 0, wait = 0.4;
+      let x = 0, y = 0, vx = 0, vy = 0, wait = 0.4;
       return {
         update(dt) {
-          // straight up and down, no sideways movement; pauses between jumps like Leap bot
-          if (y === 0 && vy === 0) { wait -= dt; if (wait <= 0) { vy = lerp(13, 15.4, c.mrng()); wait = lerp(0.3, 0.9, c.mrng()); } }
-          if (vy !== 0 || y > 0) { vy -= 20 * dt; y += vy * dt; if (y <= 0) { y = 0; vy = 0; } }
-          c.placeBot(bot, 0, foot + y, z);
+          // Each jump picks its sideways speed at takeoff (straight up, or angled left or right) and
+          // keeps it until landing: no direction changes in the air. Pauses between jumps like Leap bot.
+          if (y === 0 && vy === 0) {
+            wait -= dt;
+            if (wait <= 0) {
+              vy = lerp(13, 15.4, c.mrng());
+              const air = (2 * vy) / 20, roll = c.mrng();
+              let dir = roll < 0.25 ? 0 : roll < 0.625 ? -1 : 1;
+              if (x < -2.5) dir = Math.abs(dir); else if (x > 2.5) dir = -Math.abs(dir); // drift back toward the middle
+              vx = (dir * lerp(1.5, 3.5, c.mrng())) / air; // lands 1.5–3.5 units to the side
+              wait = lerp(0.3, 0.9, c.mrng());
+            }
+          }
+          if (vy !== 0 || y > 0) {
+            vy -= 20 * dt; y += vy * dt; x = clamp(x + vx * dt, -4.5, 4.5);
+            if (y <= 0) { y = 0; vy = 0; vx = 0; }
+          }
+          c.placeBot(bot, x, foot + y, z);
         },
       };
     },
